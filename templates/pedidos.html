@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Pedidos{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Pedidos</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Nuevo pedido</h5>
+    <form id="form-order" onsubmit="createOrder(event)">
+      <div class="mb-3">
+        <label class="form-label">Mesa</label>
+        <select id="order-table-id" class="form-select" required></select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Notas</label>
+        <input type="text" id="order-notes" class="form-control" placeholder="Opcional">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Platos (plato + cantidad, luego agregar)</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-1">
+          <select id="order-dish-id" class="form-select" style="max-width:220px;"></select>
+          <input type="number" id="order-qty" class="form-control" min="1" value="1" style="max-width:80px">
+          <button type="button" class="btn btn-outline-secondary" onclick="addOrderItem()">Agregar</button>
+        </div>
+        <ul id="order-items-list" class="list-unstyled mt-2 mb-0"></ul>
+      </div>
+      <button type="submit" class="btn btn-primary">Crear pedido</button>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Listado</h5>
+    <div id="pedidos-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="pedidos-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-order-status" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-order-status')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Cambiar estado del pedido</h5></div>
+      <div class="modal-body">
+        <input type="hidden" id="status-order-id" value="">
+        <div class="mb-3">
+          <label class="form-label">Estado</label>
+          <select id="order-status-select" class="form-select">
+            <option value="pending">Pendiente</option>
+            <option value="preparing">En preparación</option>
+            <option value="served">Servido</option>
+            <option value="paid">Pagado</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="saveOrderStatus()">Guardar</button>
+        <button type="button" class="btn btn-secondary" onclick="modalHide('modal-order-status')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+let orderItems = [];
+let tables = [];
+let dishes = [];
+
+function loadTables() {
+  return apiGet('/api/tables').then(data => {
+    tables = data || [];
+    const sel = document.getElementById('order-table-id');
+    sel.innerHTML = '<option value="">-- Mesa --</option>';
+    tables.filter(t => !t.occupied).forEach(t => {
+      sel.innerHTML += '<option value="' + t.id + '">Mesa ' + (t.number || t.id) + ' (capacidad ' + (t.capacity || '-') + ')</option>';
+    });
+    if (tables.length && !sel.value) sel.innerHTML += '<option value="' + tables[0].id + '">Mesa ' + (tables[0].number || tables[0].id) + '</option>';
+  });
+}
+function loadDishes() {
+  return apiGet('/api/menu/dishes').then(data => {
+    dishes = (data || []).filter(d => d.available !== false);
+    const sel = document.getElementById('order-dish-id');
+    sel.innerHTML = '<option value="">-- Plato --</option>';
+    dishes.forEach(d => {
+      sel.innerHTML += '<option value="' + d.id + '">' + (d.name || '') + ' (₡' + (d.price != null ? Number(d.price).toLocaleString() : '') + ')</option>';
+    });
+  });
+}
+function addOrderItem() {
+  const dishId = document.getElementById('order-dish-id').value;
+  const qty = parseInt(document.getElementById('order-qty').value, 10) || 1;
+  if (!dishId) return;
+  const dish = dishes.find(d => d.id == dishId);
+  orderItems.push({ dish_id: parseInt(dishId, 10), quantity: qty, name: dish ? dish.name : '' });
+  renderOrderItems();
+}
+function removeOrderItem(i) {
+  orderItems.splice(i, 1);
+  renderOrderItems();
+}
+function renderOrderItems() {
+  const ul = document.getElementById('order-items-list');
+  ul.innerHTML = orderItems.map((it, i) => '<li class="mb-1">' + it.name + ' x ' + it.quantity + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeOrderItem(' + i + ')">Quitar</button></li>').join('') || '';
+}
+function createOrder(e) {
+  e.preventDefault();
+  if (orderItems.length === 0) { showMsg(msg, 'Agrega al menos un plato.', 'error'); return; }
+  const data = {
+    table_id: parseInt(document.getElementById('order-table-id').value, 10),
+    notes: document.getElementById('order-notes').value.trim() || null,
+    items: orderItems.map(it => ({ dish_id: it.dish_id, quantity: it.quantity }))
+  };
+  apiPost('/api/orders', data)
+    .then(() => {
+      showMsg(msg, 'Pedido creado.', 'success');
+      orderItems = [];
+      renderOrderItems();
+      loadPedidos();
+      loadTables();
+    })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function loadPedidos() {
+  document.getElementById('pedidos-loading').style.display = 'block';
+  document.getElementById('pedidos-content').style.display = 'none';
+  apiGet('/api/orders')
+    .then(data => {
+      document.getElementById('pedidos-loading').style.display = 'none';
+      document.getElementById('pedidos-content').style.display = 'block';
+      const list = data || [];
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Mesa</th><th>Estado</th><th>Notas</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      list.forEach(o => {
+        html += '<tr><td>' + o.id + '</td><td>' + (o.table_id || '-') + '</td><td>' + (o.status || '-') + '</td><td>' + (o.notes || '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="openStatusModal(' + o.id + ',\'' + (o.status || '') + '\')">Estado</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delOrder(' + o.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('pedidos-content').innerHTML = html || '<p>No hay pedidos.</p>';
+    })
+    .catch(e => { document.getElementById('pedidos-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+function openStatusModal(id, status) {
+  document.getElementById('status-order-id').value = id;
+  document.getElementById('order-status-select').value = status || 'pending';
+  modalShow('modal-order-status');
+}
+function saveOrderStatus() {
+  const id = document.getElementById('status-order-id').value;
+  const status = document.getElementById('order-status-select').value;
+  fetch('/api/orders/' + id + '/status', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: status }),
+  }).then(r => {
+    if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); });
+    return r.json();
+  }).then(() => { modalHide('modal-order-status'); showMsg(msg, 'Estado actualizado.', 'success'); loadPedidos(); loadTables(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delOrder(id) {
+  if (!confirm('¿Eliminar este pedido?')) return;
+  apiDelete('/api/orders/' + id)
+    .then(() => { showMsg(msg, 'Pedido eliminado.', 'success'); loadPedidos(); loadTables(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+Promise.all([loadTables(), loadDishes()]).then(() => { loadPedidos(); });
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<h1 class="h4 mb-4">Inicio</h1>
+<div class="row g-2 g-md-3">
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.menu') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-journal-richtext fs-4 d-block mb-1"></i>
+      <span>Menú</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.mesas') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-grid-3x3-gap fs-4 d-block mb-1"></i>
+      <span>Mesas</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.pedidos') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-receipt fs-4 d-block mb-1"></i>
+      <span>Pedidos</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.inventario') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-box-seam fs-4 d-block mb-1"></i>
+      <span>Inventario</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.proveedores') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-truck fs-4 d-block mb-1"></i>
+      <span>Proveedores</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.clientes') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-person-badge fs-4 d-block mb-1"></i>
+      <span>Clientes</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.compras') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-cart-check fs-4 d-block mb-1"></i>
+      <span>Compras</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.planilla') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-people fs-4 d-block mb-1"></i>
+      <span>Planilla</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

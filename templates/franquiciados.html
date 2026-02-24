@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Franquiciados{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Franquiciados</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card">
+  <div class="card-body">
+    <p class="text-muted small mb-3">Gestiona los franquiciados de la cadena. Cada franquiciado tiene su propio inventario, clientes, compras y planilla.</p>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <input type="text" id="franchisees-search" class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar..." oninput="loadFranchisees()">
+      <button type="button" class="btn btn-sm btn-primary" onclick="openFranchiseeForm()">Nuevo franquiciado</button>
+    </div>
+    <div id="franchisees-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="franchisees-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-franchisee" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-franchisee')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-franchisee-title">Nuevo franquiciado</h5></div>
+      <form id="form-franchisee" onsubmit="saveFranchisee(event)">
+        <div class="modal-body">
+          <input type="hidden" id="franchisee-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Código</label>
+            <input type="text" id="franchisee-code" class="form-control" placeholder="Ej. 001">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nombre *</label>
+            <input type="text" id="franchisee-name" class="form-control" required placeholder="Ej. Sucursal Centro">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Dirección</label>
+            <textarea id="franchisee-address" class="form-control" rows="2" placeholder="Dirección completa"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="franchisee-phone" class="form-control" placeholder="Ej. 300 123 4567">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" id="franchisee-email" class="form-control" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="franchisee-active" class="form-check-input" checked>
+            <label class="form-check-label" for="franchisee-active">Activo</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-franchisee')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_FRANCHISEES = "/api/franchisees";
+const msg = document.getElementById('msg');
+var franchiseesList = [];
+
+function loadFranchisees() {
+  document.getElementById('franchisees-loading').style.display = 'block';
+  document.getElementById('franchisees-content').style.display = 'none';
+  var q = (document.getElementById('franchisees-search') && document.getElementById('franchisees-search').value) || '';
+  var url = API_FRANCHISEES + (q.trim() ? '?q=' + encodeURIComponent(q.trim()) : '');
+  apiGet(url)
+    .then(data => {
+      document.getElementById('franchisees-loading').style.display = 'none';
+      document.getElementById('franchisees-content').style.display = 'block';
+      franchiseesList = Array.isArray(data) ? data : [];
+      if (franchiseesList.length === 0) {
+        document.getElementById('franchisees-content').innerHTML = '<p>No hay franquiciados. Añade uno con "Nuevo franquiciado".</p>';
+        return;
+      }
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Código</th><th>Nombre</th><th>Dirección</th><th>Teléfono</th><th>Email</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      franchiseesList.forEach(f => {
+        html += '<tr><td>' + (f.code || '-') + '</td><td>' + (f.name || '') + '</td><td>' + (f.address || '-') + '</td><td>' + (f.phone || '-') + '</td><td>' + (f.email || '-') + '</td><td>' + (f.active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editFranchisee(' + f.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delFranchisee(' + f.id + ')">Desactivar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('franchisees-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('franchisees-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+
+function openFranchiseeForm() {
+  document.getElementById('modal-franchisee-title').textContent = 'Nuevo franquiciado';
+  document.getElementById('franchisee-id').value = '';
+  document.getElementById('franchisee-code').value = '';
+  document.getElementById('franchisee-name').value = '';
+  document.getElementById('franchisee-address').value = '';
+  document.getElementById('franchisee-phone').value = '';
+  document.getElementById('franchisee-email').value = '';
+  document.getElementById('franchisee-active').checked = true;
+  modalShow('modal-franchisee');
+}
+
+function editFranchisee(id) {
+  apiGet(API_FRANCHISEES + '/' + id).then(f => {
+    document.getElementById('modal-franchisee-title').textContent = 'Editar franquiciado';
+    document.getElementById('franchisee-id').value = f.id;
+    document.getElementById('franchisee-code').value = f.code || '';
+    document.getElementById('franchisee-name').value = f.name || '';
+    document.getElementById('franchisee-address').value = f.address || '';
+    document.getElementById('franchisee-phone').value = f.phone || '';
+    document.getElementById('franchisee-email').value = f.email || '';
+    document.getElementById('franchisee-active').checked = f.active !== false;
+    modalShow('modal-franchisee');
+  }).catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function saveFranchisee(e) {
+  e.preventDefault();
+  var id = document.getElementById('franchisee-id').value;
+  var data = {
+    code: document.getElementById('franchisee-code').value.trim() || null,
+    name: document.getElementById('franchisee-name').value.trim(),
+    address: document.getElementById('franchisee-address').value.trim() || null,
+    phone: document.getElementById('franchisee-phone').value.trim() || null,
+    email: document.getElementById('franchisee-email').value.trim() || null,
+    active: document.getElementById('franchisee-active').checked
+  };
+  if (!data.name) { showMsg(msg, 'El nombre es obligatorio.', 'error'); return; }
+  var url = id ? API_FRANCHISEES + '/' + id : API_FRANCHISEES;
+  var p = id ? apiPut(url, data) : apiPost(API_FRANCHISEES, data);
+  p.then(() => { modalHide('modal-franchisee'); showMsg(msg, 'Franquiciado guardado.', 'success'); loadFranchisees(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function delFranchisee(id) {
+  var f = franchiseesList.find(x => x.id === id);
+  var name = f ? (f.name || '') : ('ID ' + id);
+  if (!confirm('¿Desactivar el franquiciado "' + name + '"?')) return;
+  apiDelete(API_FRANCHISEES + '/' + id)
+    .then(() => { showMsg(msg, 'Franquiciado desactivado.', 'success'); loadFranchisees(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+loadFranchisees();
+</script>
+{% endblock %}

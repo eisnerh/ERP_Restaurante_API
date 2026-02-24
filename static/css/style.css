@@ -1,0 +1,57 @@
+/* ERP - Interfaz limpia */
+body { background: #f8f9fa; }
+
+.navbar .nav-link { color: #495057 !important; }
+.navbar .nav-link:hover { color: #0d6efd !important; }
+
+.msg.alert { display: block; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1050;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+.modal-overlay.show { display: flex !important; }
+.modal-overlay .modal-dialog { margin: auto; max-width: 540px; width: 100%; }
+.modal-overlay .modal-content { border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+
+/* Mesas */
+.mesas-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+.mesa-card {
+  padding: 0.75rem;
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid;
+  font-size: 0.9rem;
+}
+.mesa-card.libre { background: #d1e7dd; border-color: #198754; color: #0f5132; }
+.mesa-card.ocupada { background: #f8d7da; border-color: #dc3545; color: #842029; }
+.mesa-card .mesa-num { font-weight: 600; }
+.mesa-card .mesa-capacity { font-size: 0.8rem; opacity: 0.85; }
+
+/* Inventario - fila stock bajo */
+.inv-row-low { background-color: #f8d7da !important; }
+
+/* Inventario agrupado por proveedor */
+.inv-group { margin-bottom: 0.5rem; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+.inv-group-header {
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+.inv-group-header:hover { background: #e9ecef; }
+.inv-group-toggle { display: inline-block; width: 1.2em; text-align: center; }
+.inv-group-body .table { margin: 0; }
+.inv-group.collapsed .inv-group-body { display: none; }
+
+/* Cards de sección */
+.section-card .card-title { font-size: 0.95rem; font-weight: 600; }

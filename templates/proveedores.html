@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Proveedores{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Proveedores</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <input type="text" id="suppliers-search" class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar..." oninput="loadSuppliers()">
+      <button type="button" class="btn btn-sm btn-primary" onclick="openSupplierForm()">Nuevo</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="reloadSuppliersFromExcel()">Desde Excel</button>
+      <a href="{{ url_for('inventory.export_suppliers') }}?format=csv" class="btn btn-sm btn-outline-secondary">CSV</a>
+    </div>
+    <div id="suppliers-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="suppliers-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Duplicados</h5>
+    <button type="button" class="btn btn-outline-secondary mb-2" onclick="loadDuplicates()">Buscar duplicados</button>
+    <div id="duplicates-loading" class="text-center text-muted py-4" style="display:none;">Buscando...</div>
+    <div id="duplicates-content"></div>
+  </div>
+</div>
+
+<div id="modal-supplier" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-supplier')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-supplier-title">Nuevo proveedor</h5></div>
+      <form id="form-supplier" onsubmit="saveSupplier(event)">
+        <div class="modal-body">
+          <input type="hidden" id="supplier-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Nombre del proveedor</label>
+            <input type="text" id="supplier-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="supplier-phone" class="form-control" placeholder="Ej. 300 123 4567">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Contacto directo</label>
+            <input type="text" id="supplier-contact" class="form-control" placeholder="Nombre de la persona de contacto">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Día de visita</label>
+            <select id="supplier-visit-day-select" class="form-select" onchange="toggleVisitDayOther()">
+              <option value="">-- Seleccionar --</option>
+              <option value="Lunes">Lunes</option>
+              <option value="Martes">Martes</option>
+              <option value="Miércoles">Miércoles</option>
+              <option value="Jueves">Jueves</option>
+              <option value="Viernes">Viernes</option>
+              <option value="Sábado">Sábado</option>
+              <option value="Domingo">Domingo</option>
+              <option value="_other_">Otro</option>
+            </select>
+            <input type="text" id="supplier-visit-day-other" class="form-control mt-2" placeholder="Especificar día(s)" style="display:none;">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-supplier')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_INV_SUPPLIERS = "{{ url_for('inventory.list_suppliers') }}";
+var API_SUPPLIERS_EXPORT = "{{ url_for('inventory.export_suppliers') }}";
+var API_SUPPLIERS_DUPLICATES = "{{ url_for('inventory.suggest_supplier_duplicates') }}";
+var API_SUPPLIERS_MERGE = "{{ url_for('inventory.merge_suppliers') }}";
+var API_SUPPLIERS_RELOAD = "{{ url_for('inventory.reload_suppliers_from_excel') }}";
+const msg = document.getElementById('msg');
+var suppliersList = [];
+
+function reloadSuppliersFromExcel() {
+  showMsg(msg, 'Cargando proveedores desde el Excel...', 'info');
+  apiPost(API_SUPPLIERS_RELOAD, {})
+    .then(function(r) {
+      showMsg(msg, (r.message || 'Listo.') + ' ' + (r.created || 0) + ' proveedor(es) creado(s). Total en Excel: ' + (r.total_in_excel || 0), 'success');
+      loadSuppliers();
+    })
+    .catch(function(e) { showMsg(msg, 'Error: ' + (e.message || e), 'error'); });
+}
+
+function loadSuppliers() {
+  document.getElementById('suppliers-loading').style.display = 'block';
+  document.getElementById('suppliers-content').style.display = 'none';
+  var q = (document.getElementById('suppliers-search') && document.getElementById('suppliers-search').value) || '';
+  var url = API_INV_SUPPLIERS + (q.trim() ? '?q=' + encodeURIComponent(q.trim()) : '');
+  apiGet(url)
+    .then(data => {
+      document.getElementById('suppliers-loading').style.display = 'none';
+      document.getElementById('suppliers-content').style.display = 'block';
+      suppliersList = data || [];
+      if (suppliersList.length === 0) {
+        document.getElementById('suppliers-content').innerHTML = '<p>No hay proveedores. Añade uno con "Nuevo proveedor".</p>';
+        return;
+      }
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Nombre</th><th>Teléfono</th><th>Contacto</th><th>Día visita</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      suppliersList.forEach(s => {
+        html += '<tr><td>' + (s.name || '') + '</td><td>' + (s.phone || '') + '</td><td>' + (s.contact || '') + '</td><td>' + (s.visit_day || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSupplier(' + s.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delSupplier(' + s.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('suppliers-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('suppliers-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+var VISIT_DAY_OPTIONS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+function toggleVisitDayOther() {
+  var sel = document.getElementById('supplier-visit-day-select');
+  var other = document.getElementById('supplier-visit-day-other');
+  if (sel && other) {
+    other.style.display = (sel.value === '_other_') ? 'block' : 'none';
+    if (sel.value !== '_other_') other.value = '';
+  }
+}
+function getVisitDayValue() {
+  var sel = document.getElementById('supplier-visit-day-select');
+  var other = document.getElementById('supplier-visit-day-other');
+  if (!sel) return null;
+  if (sel.value === '_other_') return (other && other.value.trim()) || null;
+  return sel.value || null;
+}
+function setVisitDayValue(value) {
+  var sel = document.getElementById('supplier-visit-day-select');
+  var other = document.getElementById('supplier-visit-day-other');
+  if (!sel) return;
+  if (!value || value.trim() === '') {
+    sel.value = '';
+    if (other) { other.value = ''; other.style.display = 'none'; }
+    return;
+  }
+  if (VISIT_DAY_OPTIONS.indexOf(value) >= 0) {
+    sel.value = value;
+    if (other) { other.value = ''; other.style.display = 'none'; }
+  } else {
+    sel.value = '_other_';
+    if (other) { other.value = value; other.style.display = 'block'; }
+  }
+}
+function openSupplierForm() {
+  document.getElementById('modal-supplier-title').textContent = 'Nuevo proveedor';
+  document.getElementById('supplier-id').value = '';
+  document.getElementById('supplier-name').value = '';
+  document.getElementById('supplier-phone').value = '';
+  document.getElementById('supplier-contact').value = '';
+  setVisitDayValue('');
+  modalShow('modal-supplier');
+}
+function editSupplier(id) {
+  apiGet(API_INV_SUPPLIERS + '/' + id).then(s => {
+    document.getElementById('modal-supplier-title').textContent = 'Editar proveedor';
+    document.getElementById('supplier-id').value = s.id;
+    document.getElementById('supplier-name').value = s.name || '';
+    document.getElementById('supplier-phone').value = s.phone || '';
+    document.getElementById('supplier-contact').value = s.contact || '';
+    setVisitDayValue(s.visit_day || '');
+    modalShow('modal-supplier');
+  }).catch(err => showMsg(msg, err.message, 'error'));
+}
+function saveSupplier(e) {
+  e.preventDefault();
+  var id = document.getElementById('supplier-id').value;
+  var data = {
+    name: document.getElementById('supplier-name').value.trim(),
+    phone: (document.getElementById('supplier-phone') && document.getElementById('supplier-phone').value.trim()) || null,
+    contact: (document.getElementById('supplier-contact') && document.getElementById('supplier-contact').value.trim()) || null,
+    visit_day: getVisitDayValue()
+  };
+  if (!data.name) { showMsg(msg, 'Escribe el nombre del proveedor.', 'error'); return; }
+  var p = id ? apiPut(API_INV_SUPPLIERS + '/' + id, data) : apiPost(API_INV_SUPPLIERS, data);
+  p.then(() => { modalHide('modal-supplier'); showMsg(msg, 'Proveedor guardado.', 'success'); loadSuppliers(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delSupplier(id) {
+  var s = suppliersList.find(function(x) { return x.id === id; });
+  var name = s ? (s.name || '') : ('ID ' + id);
+  if (!confirm('¿Eliminar el proveedor "' + name + '"? Los ítems conservarán ese nombre como texto.')) return;
+  apiDelete(API_INV_SUPPLIERS + '/' + id)
+    .then(() => { showMsg(msg, 'Proveedor eliminado.', 'success'); loadSuppliers(); loadDuplicates(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function loadDuplicates() {
+  document.getElementById('duplicates-loading').style.display = 'block';
+  document.getElementById('duplicates-content').innerHTML = '';
+  apiGet(API_SUPPLIERS_DUPLICATES)
+    .then(function(data) {
+      document.getElementById('duplicates-loading').style.display = 'none';
+      var groups = data.groups || [];
+      if (groups.length === 0) {
+        document.getElementById('duplicates-content').innerHTML = '<p>No se detectaron posibles duplicados.</p>';
+        return;
+      }
+      var html = '';
+      groups.forEach(function(grp, idx) {
+        var names = grp.names || [];
+        var ids = grp.ids || [];
+        var reason = grp.reason || '';
+        html += '<div class="inv-group mb-2" style="border:1px solid var(--border); border-radius:8px; padding:0.75rem;">';
+        html += '<p style="margin:0 0 0.5rem 0; font-size:0.9rem;"><strong>Grupo ' + (idx + 1) + ':</strong> ' + reason + '</p>';
+        html += '<ul style="margin:0 0 0.5rem 0; padding-left:1.25rem;">';
+        for (var i = 0; i < names.length; i++) {
+          html += '<li>' + (names[i] || '') + ' (ID ' + ids[i] + ')</li>';
+        }
+        html += '</ul>';
+        html += '<p style="margin:0 0 0.35rem 0; font-size:0.85rem;">Unificar todos en:</p>';
+        html += '<select id="merge-into-' + idx + '" class="form-select form-select-sm d-inline-block me-2" style="max-width:280px;">';
+        ids.forEach(function(id, i) {
+          html += '<option value="' + id + '">' + (names[i] || '') + '</option>';
+        });
+        html += '</select>';
+        html += '<button type="button" class="btn btn-sm btn-primary" onclick="doMerge(' + idx + ', ' + JSON.stringify(ids) + ')">Unificar</button>';
+        html += '</div>';
+      });
+      document.getElementById('duplicates-content').innerHTML = html;
+    })
+    .catch(function(e) {
+      document.getElementById('duplicates-loading').style.display = 'none';
+      document.getElementById('duplicates-content').innerHTML = '<p class="alert alert-danger mb-0">Error: ' + e.message + '</p>';
+    });
+}
+function doMerge(groupIdx, ids) {
+  var sel = document.getElementById('merge-into-' + groupIdx);
+  if (!sel || ids.length < 2) return;
+  var intoId = parseInt(sel.value, 10);
+  var fromIds = ids.filter(function(id) { return id !== intoId; });
+  if (!fromIds.length) return;
+  if (!confirm('Se unificarán ' + fromIds.length + ' proveedor(es) en el seleccionado. ¿Continuar?')) return;
+  function mergeNext(i) {
+    if (i >= fromIds.length) {
+      showMsg(msg, 'Proveedores unificados.', 'success');
+      loadSuppliers();
+      loadDuplicates();
+      return;
+    }
+    apiPost(API_SUPPLIERS_MERGE, { from_id: fromIds[i], into_id: intoId })
+      .then(function() { mergeNext(i + 1); })
+      .catch(function(err) { showMsg(msg, err.message, 'error'); });
+  }
+  mergeNext(0);
+}
+loadSuppliers();
+</script>
+{% endblock %}

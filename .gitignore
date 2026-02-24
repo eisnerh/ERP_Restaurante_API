@@ -1,0 +1,64 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+env.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Base de datos
+*.db
+*.sqlite3
+*.db-journal
+
+# Variables de entorno (no versionar secretos)
+.env
+.env.local
+.env.*.local
+
+# Secretos
+*.pem
+*.key
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs y caché
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Excel temporales (archivos abiertos)
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+README.md

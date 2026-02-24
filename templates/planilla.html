@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Planilla{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Planilla</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Ubicaciones (tiendas)</h5>
+    <p class="mb-3"><button type="button" class="btn btn-primary" onclick="openLocForm()">Nueva ubicación</button> <button type="button" class="btn btn-outline-secondary btn-sm" onclick="importExcel()">Importar desde Excel</button></p>
+    <div id="loc-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="loc-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Registros de planilla (empleados / MERMAS)</h5>
+    <p class="mb-3"><button type="button" class="btn btn-primary" onclick="openEntryForm()">Nuevo registro</button></p>
+    <div class="row g-2 mb-3">
+      <div class="col-auto">
+        <label class="form-label">Ubicación</label>
+        <select id="filter-loc" class="form-select" style="min-width:180px;" onchange="loadEntries()"></select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label">Fecha periodo (YYYY-MM-DD)</label>
+        <input type="date" id="filter-period" class="form-control" onchange="loadEntries()">
+      </div>
+    </div>
+    <div id="ent-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="ent-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Desgloses de pago (payslips)</h5>
+    <p class="mb-3">Importar Excel de desglose por empleado. Descarga PDF para imprimir y firmar.</p>
+    <div id="ps-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="ps-content" style="display:none;"></div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Resumen quincena (PDF)</h5>
+    <a href="/api/payroll/payslips/summary-pdf?location_name=PLAZA%20SAN%20CARLOS&period_start=2026-02-01&period_end=2026-02-15" class="btn btn-primary" target="_blank">Abrir resumen PDF (ejemplo)</a>
+  </div>
+</div>
+
+<!-- Modal ubicación -->
+<div id="modal-loc" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-loc')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-loc-title">Nueva ubicación</h5></div>
+      <form onsubmit="saveLoc(event)">
+        <div class="modal-body">
+          <input type="hidden" id="loc-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="loc-name" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-loc')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal registro planilla -->
+<div id="modal-entry" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-entry')">
+  <div class="modal-dialog" style="max-width:520px;">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-entry-title">Nuevo registro</h5></div>
+      <form onsubmit="saveEntry(event)">
+        <div class="modal-body">
+          <input type="hidden" id="entry-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Ubicación</label>
+            <select id="entry-location-id" class="form-select" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Fecha periodo (YYYY-MM-DD)</label>
+            <input type="date" id="entry-period-date" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nombre empleado</label>
+            <input type="text" id="entry-employee-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo</label>
+            <select id="entry-type" class="form-select">
+              <option value="employee">Empleado</option>
+              <option value="mermas">Mermas</option>
+              <option value="other">Otro</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Hrs extra</label>
+            <input type="number" id="entry-hrs" class="form-control" step="0.5" placeholder="Opcional">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Créditos comida</label>
+            <input type="number" id="entry-creditos" class="form-control" step="0.01" value="0">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Vale efectivo</label>
+            <input type="number" id="entry-vale" class="form-control" step="0.01" placeholder="Opcional">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notas</label>
+            <input type="text" id="entry-notes" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-entry')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+let locations = [];
+
+function loadLocations() {
+  document.getElementById('loc-loading').style.display = 'block';
+  document.getElementById('loc-content').style.display = 'none';
+  apiGet('/api/payroll/locations')
+    .then(data => {
+      locations = data || [];
+      document.getElementById('loc-loading').style.display = 'none';
+      document.getElementById('loc-content').style.display = 'block';
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Nombre</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      locations.forEach(l => {
+        html += '<tr><td>' + l.id + '</td><td>' + (l.name || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editLoc(' + l.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delLoc(' + l.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('loc-content').innerHTML = html || '<p>No hay ubicaciones.</p>';
+      const sel = document.getElementById('filter-loc');
+      sel.innerHTML = '<option value="">Todas</option>';
+      locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+      fillLocSelect();
+    })
+    .catch(e => { document.getElementById('loc-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+function fillLocSelect() {
+  const sel = document.getElementById('entry-location-id');
+  sel.innerHTML = '<option value="">-- Ubicación --</option>';
+  locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+}
+function openLocForm() {
+  document.getElementById('modal-loc-title').textContent = 'Nueva ubicación';
+  document.getElementById('loc-id').value = '';
+  document.getElementById('loc-name').value = '';
+  modalShow('modal-loc');
+}
+function editLoc(id) {
+  const l = locations.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('modal-loc-title').textContent = 'Editar ubicación';
+  document.getElementById('loc-id').value = l.id;
+  document.getElementById('loc-name').value = l.name || '';
+  modalShow('modal-loc');
+}
+function saveLoc(e) {
+  e.preventDefault();
+  const id = document.getElementById('loc-id').value;
+  const data = { name: document.getElementById('loc-name').value.trim() };
+  const p = id ? apiPut('/api/payroll/locations/' + id, data) : apiPost('/api/payroll/locations', data);
+  p.then(() => { modalHide('modal-loc'); showMsg(msg, 'Guardado.', 'success'); loadLocations(); loadEntries(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delLoc(id) {
+  if (!confirm('¿Eliminar esta ubicación y sus registros?')) return;
+  apiDelete('/api/payroll/locations/' + id)
+    .then(() => { showMsg(msg, 'Ubicación eliminada.', 'success'); loadLocations(); loadEntries(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function loadEntries() {
+  const locId = document.getElementById('filter-loc').value;
+  const period = document.getElementById('filter-period').value;
+  document.getElementById('ent-loading').style.display = 'block';
+  document.getElementById('ent-content').style.display = 'none';
+  let url = '/api/payroll/entries?';
+  if (locId) url += 'location_id=' + locId + '&';
+  if (period) url += 'period_date=' + period;
+  apiGet(url)
+    .then(data => {
+      document.getElementById('ent-loading').style.display = 'none';
+      document.getElementById('ent-content').style.display = 'block';
+      const list = data || [];
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Empleado</th><th>Tipo</th><th>Hrs extra</th><th>Créditos</th><th>Vale</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      list.forEach(o => {
+        html += '<tr><td>' + o.id + '</td><td>' + (o.employee_name || '') + '</td><td>' + (o.entry_type || '') + '</td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('ent-content').innerHTML = html || '<p>No hay registros.</p>';
+    })
+    .catch(e => { document.getElementById('ent-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+function openEntryForm() {
+  document.getElementById('modal-entry-title').textContent = 'Nuevo registro';
+  document.getElementById('entry-id').value = '';
+  document.getElementById('entry-period-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('entry-employee-name').value = '';
+  document.getElementById('entry-type').value = 'employee';
+  document.getElementById('entry-hrs').value = '';
+  document.getElementById('entry-creditos').value = '0';
+  document.getElementById('entry-vale').value = '';
+  document.getElementById('entry-notes').value = '';
+  fillLocSelect();
+  modalShow('modal-entry');
+}
+function editEntry(id) {
+  apiGet('/api/payroll/entries/' + id).then(o => {
+    document.getElementById('modal-entry-title').textContent = 'Editar registro';
+    document.getElementById('entry-id').value = o.id;
+    document.getElementById('entry-location-id').value = o.location_id || '';
+    document.getElementById('entry-period-date').value = o.period_date || '';
+    document.getElementById('entry-employee-name').value = o.employee_name || '';
+    document.getElementById('entry-type').value = o.entry_type || 'employee';
+    document.getElementById('entry-hrs').value = o.hrs_extra != null ? o.hrs_extra : '';
+    document.getElementById('entry-creditos').value = o.creditos_comida != null ? o.creditos_comida : '0';
+    document.getElementById('entry-vale').value = o.vale_efectivo != null ? o.vale_efectivo : '';
+    document.getElementById('entry-notes').value = o.notes || '';
+    fillLocSelect();
+    modalShow('modal-entry');
+  }).catch(err => showMsg(msg, err.message, 'error'));
+}
+function saveEntry(e) {
+  e.preventDefault();
+  const id = document.getElementById('entry-id').value;
+  const data = {
+    location_id: parseInt(document.getElementById('entry-location-id').value, 10),
+    period_date: document.getElementById('entry-period-date').value,
+    employee_name: document.getElementById('entry-employee-name').value.trim(),
+    entry_type: document.getElementById('entry-type').value,
+    hrs_extra: document.getElementById('entry-hrs').value ? parseFloat(document.getElementById('entry-hrs').value) : null,
+    creditos_comida: parseFloat(document.getElementById('entry-creditos').value) || 0,
+    vale_efectivo: document.getElementById('entry-vale').value ? parseFloat(document.getElementById('entry-vale').value) : null,
+    notes: document.getElementById('entry-notes').value.trim() || null
+  };
+  const p = id ? apiPut('/api/payroll/entries/' + id, data) : apiPost('/api/payroll/entries', data);
+  p.then(() => { modalHide('modal-entry'); showMsg(msg, 'Guardado.', 'success'); loadEntries(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delEntry(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  apiDelete('/api/payroll/entries/' + id)
+    .then(() => { showMsg(msg, 'Registro eliminado.', 'success'); loadEntries(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function importExcel() {
+  fetch('/api/payroll/import-excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_date: new Date().toISOString().slice(0, 10), replace_all: true }) })
+    .then(r => r.json())
+    .then(j => { showMsg(msg, 'Importado: ' + (j.entries || 0) + ' registros.', 'success'); loadLocations(); loadEntries(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+document.getElementById('ps-loading').style.display = 'block';
+apiGet('/api/payroll/payslips').then(data => {
+  document.getElementById('ps-loading').style.display = 'none';
+  document.getElementById('ps-content').style.display = 'block';
+  const list = data || [];
+  let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Ubicación</th><th>Período</th><th>Total</th><th>PDF</th></tr></thead><tbody>';
+  list.forEach(p => {
+    const total = p.total_depositado != null ? '₡ ' + Number(p.total_depositado).toLocaleString() : '-';
+    html += '<tr><td>' + (p.employee_name || '') + '</td><td>' + (p.position || '-') + '</td><td>' + (p.location_name || '') + '</td><td>' + (p.period_start || '') + '</td><td>' + total + '</td><td><a href="/api/payroll/payslips/' + p.id + '/pdf" class="btn btn-sm btn-primary" target="_blank">Ver PDF</a></td></tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('ps-content').innerHTML = html || '<p>No hay desgloses. Importa el Excel de planilla.</p>';
+}).catch(() => { document.getElementById('ps-loading').style.display = 'none'; document.getElementById('ps-content').innerHTML = '<p>No se pudieron cargar los desgloses.</p>'; document.getElementById('ps-content').style.display = 'block'; });
+
+loadLocations().then(() => loadEntries());
+</script>
+{% endblock %}

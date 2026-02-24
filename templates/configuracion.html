@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Configuración</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Apariencia</h5>
+    <form id="form-settings" onsubmit="saveSettings(event)">
+      <div class="mb-3">
+        <label class="form-label">Nombre de la aplicación</label>
+        <input type="text" id="app-name" class="form-control" placeholder="Ej. ERP Raul Castaño" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Icono en la barra</label>
+        <select id="nav-icon" class="form-select">
+          <option value="">Sin icono</option>
+          <option value="bi-shop">Tienda</option>
+          <option value="bi-cup-hot">Café</option>
+          <option value="bi-egg-fried">Restaurante</option>
+          <option value="bi-building">Edificio</option>
+          <option value="bi-egg">Huevo</option>
+          <option value="bi-basket">Cesta</option>
+          <option value="bi-gear">Engranaje</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">URL del logo</label>
+        <input type="text" id="logo-url" class="form-control" placeholder="/static/images/logo.png o https://...">
+        <small class="text-muted">Ruta relativa o URL completa. Dejar vacío para solo texto.</small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">URL del favicon</label>
+        <input type="text" id="favicon-url" class="form-control" placeholder="/static/images/favicon.ico">
+      </div>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </form>
+  </div>
+</div>
+<script>
+var API_SETTINGS = "{{ url_for('settings.get_settings') }}";
+const msg = document.getElementById('msg');
+
+function loadSettings() {
+  fetch(API_SETTINGS)
+    .then(r => r.json())
+    .then(s => {
+      document.getElementById('app-name').value = s.app_name || '';
+      document.getElementById('nav-icon').value = s.nav_icon || '';
+      document.getElementById('logo-url').value = s.logo_url || '';
+      document.getElementById('favicon-url').value = s.favicon_url || '';
+    })
+    .catch(e => { if (msg) { msg.textContent = 'Error: ' + e.message; msg.className = 'msg alert alert-danger'; msg.style.display = 'block'; } });
+}
+
+function saveSettings(e) {
+  e.preventDefault();
+  var data = {
+    app_name: document.getElementById('app-name').value.trim(),
+    nav_icon: document.getElementById('nav-icon').value || '',
+    logo_url: document.getElementById('logo-url').value.trim() || '',
+    favicon_url: document.getElementById('favicon-url').value.trim() || ''
+  };
+  if (!data.app_name) { alert('El nombre es obligatorio'); return; }
+  fetch(API_SETTINGS, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(() => {
+    if (msg) { msg.textContent = 'Configuración guardada. Recarga la página para ver los cambios.'; msg.className = 'msg alert alert-success'; msg.style.display = 'block'; }
+  })
+  .catch(err => { if (msg) { msg.textContent = 'Error: ' + err.message; msg.className = 'msg alert alert-danger'; msg.style.display = 'block'; } });
+}
+
+document.addEventListener('DOMContentLoaded', loadSettings);
+</script>
+{% endblock %}

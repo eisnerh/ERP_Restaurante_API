@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% block title %}Inventario{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Inventario</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <button type="button" class="btn btn-sm btn-primary" onclick="openInvForm()">Nuevo ítem</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="importExcel()">Importar Excel</button>
+      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv" class="btn btn-sm btn-outline-secondary">Reporte CSV</a>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      <select id="filter-area" class="form-select form-select-sm" style="max-width:120px" onchange="loadInv()">
+        <option value="">Todas</option>
+        <option value="salon">Salón</option>
+        <option value="cocina">Cocina</option>
+      </select>
+      <input type="text" id="inv-search" class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar..." oninput="loadInv()">
+    </div>
+    <div id="inv-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="inv-content" style="display:none;"></div>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="card-title mb-0">Unidades</h5>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openUnitForm()">Nueva</button>
+    </div>
+    <div id="units-loading" class="text-center text-muted py-2">Cargando...</div>
+    <div id="units-content" style="display:none;">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Símbolo</th><th>Nombre</th><th class="text-end">Acciones</th></tr></thead>
+          <tbody id="units-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Alertas</h5>
+    <div id="alerts-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="alerts-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-unit" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-unit')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-unit-title">Nueva unidad</h5></div>
+      <form id="form-unit" onsubmit="saveUnit(event)">
+        <div class="modal-body">
+          <input type="hidden" id="unit-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Símbolo</label>
+            <input type="text" id="unit-symbol" class="form-control" placeholder="Ej. KG, UND, L" required maxlength="20">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nombre (opcional)</label>
+            <input type="text" id="unit-name" class="form-control" placeholder="Ej. Kilogramo, Unidad">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-unit')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="modal-inv" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-inv')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-inv-title">Nuevo ítem</h5></div>
+      <form id="form-inv" onsubmit="saveInv(event)">
+        <div class="modal-body">
+          <input type="hidden" id="inv-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Código</label>
+            <input type="text" id="inv-code" class="form-control" placeholder="Ej. 83-04, 67-01">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Área</label>
+            <select id="inv-area" class="form-select" required onchange="updateInvCodeForArea()">
+              <option value="salon">Salón</option>
+              <option value="cocina">Cocina</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Producto</label>
+            <input type="text" id="inv-product-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Unidad de medida</label>
+            <select id="inv-unit" class="form-select"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Existencia</label>
+            <input type="number" id="inv-existence" class="form-control" step="0.01" value="0">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Stock</label>
+            <input type="number" id="inv-stock" class="form-control" step="0.01" value="0">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pedido sugerido</label>
+            <input type="number" id="inv-order-quantity" class="form-control" step="0.01" placeholder="Opcional">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Proveedores (puede elegir varios)</label>
+            <div id="inv-suppliers-checkboxes" class="border rounded p-2" style="max-height:160px; overflow-y:auto;"></div>
+            <input type="text" id="inv-supplier" class="form-control mt-2" placeholder="Otro proveedor (varios separados por /)" title="Varios nombres separados por /">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Responsable</label>
+            <input type="text" id="inv-responsible" class="form-control" placeholder="Nombre del responsable del ítem">
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <div id="inv-modal-footer-delete" style="display:none;">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="delInvFromModal()">Eliminar ítem</button>
+          </div>
+          <div class="d-flex gap-2 ms-auto">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="button" class="btn btn-secondary" onclick="modalHide('modal-inv')">Cancelar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_INV = "{{ url_for('inventory.list_inventory') }}";
+var API_INV_SUPPLIERS = "{{ url_for('inventory.list_suppliers') }}";
+var API_INV_UNITS = "{{ url_for('inventory.list_units') }}";
+const msg = document.getElementById('msg');
+var suppliersList = [];
+var unitsList = [];
+
+function fillUnitSelect(selectedSymbol) {
+  var sel = document.getElementById('inv-unit');
+  if (!sel) return;
+  sel.innerHTML = '';
+  (unitsList || []).forEach(u => {
+    var opt = document.createElement('option');
+    opt.value = u.symbol;
+    opt.textContent = u.name ? (u.symbol + ' (' + u.name + ')') : u.symbol;
+    sel.appendChild(opt);
+  });
+  if (selectedSymbol && (unitsList || []).some(function(x) { return x.symbol === selectedSymbol; }))
+    sel.value = selectedSymbol;
+  else if (unitsList && unitsList.length)
+    sel.value = unitsList[0].symbol;
+}
+function loadUnits() {
+  document.getElementById('units-loading').style.display = 'block';
+  document.getElementById('units-content').style.display = 'none';
+  apiGet(API_INV_UNITS).then(function(data) {
+    unitsList = data || [];
+    document.getElementById('units-loading').style.display = 'none';
+    document.getElementById('units-content').style.display = 'block';
+    var tbody = document.getElementById('units-tbody');
+    tbody.innerHTML = '';
+    unitsList.forEach(function(u) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (u.symbol || '') + '</td><td>' + (u.name || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editUnit(' + u.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delUnit(' + u.id + ')">Eliminar</button></td>';
+      tbody.appendChild(tr);
+    });
+    if (unitsList.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="text-muted">No hay unidades. Añada una con "Nueva unidad".</td></tr>';
+    fillUnitSelect();
+  }).catch(function() {
+    document.getElementById('units-loading').style.display = 'none';
+    document.getElementById('units-content').innerHTML = '<p class="text-muted">No se pudieron cargar las unidades.</p>';
+    document.getElementById('units-content').style.display = 'block';
+  });
+}
+function openUnitForm() {
+  document.getElementById('modal-unit-title').textContent = 'Nueva unidad';
+  document.getElementById('unit-id').value = '';
+  document.getElementById('unit-symbol').value = '';
+  document.getElementById('unit-name').value = '';
+  modalShow('modal-unit');
+}
+function editUnit(id) {
+  var u = (unitsList || []).find(function(x) { return x.id === id; });
+  if (!u) { showMsg(msg, 'Unidad no encontrada.', 'error'); return; }
+  document.getElementById('modal-unit-title').textContent = 'Editar unidad';
+  document.getElementById('unit-id').value = u.id;
+  document.getElementById('unit-symbol').value = u.symbol || '';
+  document.getElementById('unit-name').value = u.name || '';
+  modalShow('modal-unit');
+}
+function saveUnit(e) {
+  e.preventDefault();
+  var id = document.getElementById('unit-id').value;
+  var data = { symbol: document.getElementById('unit-symbol').value.trim().toUpperCase(), name: document.getElementById('unit-name').value.trim() || null };
+  if (!data.symbol) { showMsg(msg, 'El símbolo es obligatorio.', 'error'); return; }
+  var p = id ? apiPut(API_INV_UNITS + '/' + id, data) : apiPost(API_INV_UNITS, data);
+  p.then(function() { modalHide('modal-unit'); showMsg(msg, 'Unidad guardada.', 'success'); loadUnits(); })
+    .catch(function(err) { showMsg(msg, err.message, 'error'); });
+}
+function delUnit(id) {
+  if (!confirm('¿Eliminar esta unidad? No se puede si algún ítem la usa.')) return;
+  apiDelete(API_INV_UNITS + '/' + id)
+    .then(function() { showMsg(msg, 'Unidad eliminada.', 'success'); loadUnits(); fillUnitSelect(); })
+    .catch(function(err) { showMsg(msg, err.message, 'error'); });
+}
+function fillSupplierCheckboxes(selectedIds) {
+  var container = document.getElementById('inv-suppliers-checkboxes');
+  if (!container) return;
+  selectedIds = selectedIds || [];
+  container.innerHTML = '';
+  (suppliersList || []).forEach(s => {
+    var label = document.createElement('label');
+    label.style.display = 'block';
+    label.style.marginBottom = '0.25rem';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = s.id;
+    cb.checked = selectedIds.indexOf(s.id) >= 0;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + (s.name || '')));
+    container.appendChild(label);
+  });
+}
+function loadInv() {
+  const area = document.getElementById('filter-area').value;
+  const q = (document.getElementById('inv-search') && document.getElementById('inv-search').value) || '';
+  document.getElementById('inv-loading').style.display = 'block';
+  document.getElementById('inv-content').style.display = 'none';
+  var url = API_INV;
+  var params = [];
+  if (area) params.push('area=' + encodeURIComponent(area));
+  if (q.trim()) params.push('q=' + encodeURIComponent(q.trim()));
+  if (params.length) url += '?' + params.join('&');
+  apiGet(url)
+    .then(data => {
+      document.getElementById('inv-loading').style.display = 'none';
+      document.getElementById('inv-content').style.display = 'block';
+      const list = data || [];
+      if (list.length === 0) {
+        document.getElementById('inv-content').innerHTML = '<p>No hay ítems.</p>';
+        return;
+      }
+      const bySupplier = {};
+      list.forEach(i => {
+        const names = i.supplier_names && i.supplier_names.length ? i.supplier_names : (i.supplier && i.supplier.trim() ? [i.supplier.trim()] : []);
+        const key = names.length ? names.join(', ') : 'Sin proveedor';
+        if (!bySupplier[key]) bySupplier[key] = [];
+        bySupplier[key].push(i);
+      });
+      const suppliers = Object.keys(bySupplier).sort(function(a, b) {
+        if (a === 'Sin proveedor') return 1;
+        if (b === 'Sin proveedor') return -1;
+        return a.localeCompare(b);
+      });
+      let html = '';
+      suppliers.forEach((sup, idx) => {
+        const items = bySupplier[sup];
+        const id = 'inv-group-' + idx;
+        const collapsed = idx > 0 ? ' collapsed' : '';
+        html += '<div class="inv-group' + collapsed + '" id="' + id + '">';
+        html += '<div class="inv-group-header" onclick="toggleInvGroup(\'' + id + '\')"><span class="inv-group-toggle">' + (idx > 0 ? '+' : '−') + '</span><span>' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + '</span> <span style="opacity:0.85; font-weight:normal;">(' + items.length + ')</span></div>';
+        html += '<div class="inv-group-body"><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>ID</th><th>Código</th><th>Área</th><th>Producto</th><th>Unidad</th><th>Existencia</th><th>Stock</th><th>Responsable</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+        items.forEach(i => {
+          var stock = i.stock != null ? parseFloat(i.stock) : 0;
+          var existence = i.existence != null ? parseFloat(i.existence) : 0;
+          var lowClass = (stock > 0 && existence < stock * 0.1) ? ' inv-row-low' : '';
+          html += '<tr class="' + lowClass + '"><td>' + i.id + '</td><td>' + (i.code || '') + '</td><td>' + (i.area || '') + '</td><td>' + (i.product_name || '') + '</td><td>' + (i.unit || 'UND') + '</td><td>' + (i.existence != null ? i.existence : '-') + '</td><td>' + (i.stock != null ? i.stock : '-') + '</td><td>' + (i.responsible || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editInv(' + i.id + ')">Editar</button></td></tr>';
+        });
+        html += '</tbody></table></div></div></div>';
+      });
+      document.getElementById('inv-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('inv-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+function openInvForm() {
+  document.getElementById('inv-modal-footer-delete').style.display = 'none';
+  apiGet(API_INV_SUPPLIERS).then(function(data) {
+    suppliersList = data || [];
+    fillSupplierCheckboxes([]);
+    document.getElementById('modal-inv-title').textContent = 'Nuevo ítem';
+    document.getElementById('inv-id').value = '';
+    document.getElementById('inv-area').value = 'salon';
+    document.getElementById('inv-product-name').value = '';
+    fillUnitSelect(unitsList.length ? unitsList[0].symbol : 'UND');
+    document.getElementById('inv-existence').value = '0';
+    document.getElementById('inv-stock').value = '0';
+    document.getElementById('inv-order-quantity').value = '';
+    document.getElementById('inv-supplier').value = '';
+    document.getElementById('inv-responsible').value = '';
+    return apiGet(API_INV + '/next-code?area=salon');
+  }).then(function(res) {
+    document.getElementById('inv-code').value = (res && res.code) ? res.code : '';
+    modalShow('modal-inv');
+  }).catch(function(err) {
+    document.getElementById('inv-code').value = '';
+    modalShow('modal-inv');
+    showMsg(msg, err.message, 'error');
+  });
+}
+function updateInvCodeForArea() {
+  var id = document.getElementById('inv-id').value;
+  if (id) return;
+  var area = document.getElementById('inv-area').value;
+  apiGet(API_INV + '/next-code?area=' + encodeURIComponent(area)).then(function(res) {
+    if (res && res.code) document.getElementById('inv-code').value = res.code;
+  }).catch(function() {});
+}
+function editInv(id) {
+  document.getElementById('inv-modal-footer-delete').style.display = 'block';
+  apiGet(API_INV_SUPPLIERS).then(function(data) {
+    suppliersList = data || [];
+    return apiGet(API_INV + '/' + id);
+  }).then(function(i) {
+    fillSupplierCheckboxes(i.supplier_ids || []);
+    document.getElementById('modal-inv-title').textContent = 'Editar ítem';
+    document.getElementById('inv-id').value = i.id;
+    document.getElementById('inv-code').value = i.code || '';
+    document.getElementById('inv-area').value = i.area || 'salon';
+    document.getElementById('inv-product-name').value = i.product_name || '';
+    fillUnitSelect(i.unit);
+    document.getElementById('inv-existence').value = i.existence != null ? i.existence : '0';
+    document.getElementById('inv-stock').value = i.stock != null ? i.stock : '0';
+    document.getElementById('inv-order-quantity').value = i.order_quantity != null ? i.order_quantity : '';
+    document.getElementById('inv-supplier').value = i.supplier || '';
+    document.getElementById('inv-responsible').value = i.responsible || '';
+    modalShow('modal-inv');
+  }).catch(function(err) { showMsg(msg, err.message, 'error'); });
+}
+function getInvSupplierIds() {
+  var container = document.getElementById('inv-suppliers-checkboxes');
+  if (!container) return [];
+  var ids = [];
+  container.querySelectorAll('input[type=checkbox]:checked').forEach(function(cb) {
+    var n = parseInt(cb.value, 10);
+    if (!isNaN(n)) ids.push(n);
+  });
+  return ids;
+}
+function saveInv(e) {
+  e.preventDefault();
+  const id = document.getElementById('inv-id').value;
+  const otherText = (document.getElementById('inv-supplier') && document.getElementById('inv-supplier').value) || '';
+  const data = {
+    code: (document.getElementById('inv-code') && document.getElementById('inv-code').value.trim()) || null,
+    area: document.getElementById('inv-area').value,
+    product_name: document.getElementById('inv-product-name').value.trim(),
+    unit: document.getElementById('inv-unit').value || 'UND',
+    existence: parseFloat(document.getElementById('inv-existence').value) || 0,
+    stock: parseFloat(document.getElementById('inv-stock').value) || 0,
+    order_quantity: document.getElementById('inv-order-quantity').value ? parseFloat(document.getElementById('inv-order-quantity').value) : null,
+    supplier: otherText.trim() || null,
+    responsible: (document.getElementById('inv-responsible') && document.getElementById('inv-responsible').value.trim()) || null,
+    supplier_ids: getInvSupplierIds()
+  };
+  const p = id ? apiPut(API_INV + '/' + id, data) : apiPost(API_INV, data);
+  p.then(() => { modalHide('modal-inv'); showMsg(msg, 'Guardado.', 'success'); loadInv(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delInv(id) {
+  if (!confirm('¿Eliminar este ítem?')) return;
+  apiDelete(API_INV + '/' + id)
+    .then(() => { modalHide('modal-inv'); showMsg(msg, 'Ítem eliminado.', 'success'); loadInv(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delInvFromModal() {
+  var id = document.getElementById('inv-id').value;
+  if (!id) return;
+  delInv(parseInt(id, 10));
+}
+function toggleInvGroup(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('collapsed');
+  var header = el.querySelector('.inv-group-header');
+  var toggleSpan = header ? header.querySelector('.inv-group-toggle') : null;
+  if (toggleSpan) {
+    var isCollapsed = el.classList.contains('collapsed');
+    toggleSpan.textContent = isCollapsed ? '+' : '−';
+  }
+}
+function importExcel() {
+  if (!confirm('¿Volver a cargar todo el inventario desde el Excel? Se borrará el inventario actual y se reemplazará con la hoja INVENTARIO del libro.')) return;
+  fetch(API_INV + '/import-excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replace: true }) })
+    .then(r => r.json())
+    .then(j => { showMsg(msg, 'Base de datos restaurada desde Excel: ' + (j.imported || 0) + ' ítems importados.', 'success'); loadInv(); })
+    .catch(err => showMsg(msg, err.message || 'Error al importar', 'error'));
+}
+
+document.getElementById('alerts-loading').style.display = 'block';
+apiGet(API_INV + '/alerts').then(data => {
+  document.getElementById('alerts-loading').style.display = 'none';
+  document.getElementById('alerts-content').style.display = 'block';
+  const list = data || [];
+  let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Fecha</th><th>Umbral</th><th>Ítems</th><th></th></tr></thead><tbody>';
+  list.slice(0, 10).forEach(a => {
+    const date = a.created_at ? new Date(a.created_at).toLocaleString() : '-';
+    html += '<tr><td>' + date + '</td><td>' + (a.threshold != null ? (a.threshold * 100) + '%' : '-') + '</td><td>' + (a.item_count || 0) + '</td><td><a href="' + API_INV + '/alerts/' + a.id + '/export" class="btn btn-sm btn-outline-secondary">CSV</a></td></tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('alerts-content').innerHTML = html || '<p>No hay alertas.</p>';
+}).catch(() => { document.getElementById('alerts-loading').style.display = 'none'; document.getElementById('alerts-content').innerHTML = '<p>No se pudieron cargar las alertas.</p>'; document.getElementById('alerts-content').style.display = 'block'; });
+loadUnits();
+loadInv();
+</script>
+{% endblock %}

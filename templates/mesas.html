@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Mesas{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Mesas</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="card-title mb-0">Mesas</h5>
+      <button type="button" class="btn btn-sm btn-primary" onclick="openMesaForm()">Nueva</button>
+    </div>
+    <div id="mesas-loading" class="text-center text-muted py-4">Cargando...</div>
+    <div id="mesas-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-mesa" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-mesa')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-mesa-title">Nueva mesa</h5></div>
+      <form id="form-mesa" onsubmit="saveMesa(event)">
+        <div class="modal-body">
+          <input type="hidden" id="mesa-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Número</label>
+            <input type="number" id="mesa-number" class="form-control" min="1" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Capacidad (personas por mesa)</label>
+            <input type="number" id="mesa-capacity" class="form-control" min="1" required>
+          </div>
+          <div class="mb-3 row g-2">
+            <div class="col-6">
+              <label class="form-label">Posición X (columna)</label>
+              <input type="number" id="mesa-position-x" class="form-control" min="0" value="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Posición Y (fila)</label>
+              <input type="number" id="mesa-position-y" class="form-control" min="0" value="0">
+            </div>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" id="mesa-occupied" class="form-check-input">
+            <label class="form-check-label" for="mesa-occupied">Ocupada</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-mesa')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_TABLES = "{{ url_for('tables.list_tables') }}";
+const msg = document.getElementById('msg');
+function loadMesas() {
+  document.getElementById('mesas-loading').style.display = 'block';
+  document.getElementById('mesas-content').style.display = 'none';
+  apiGet(API_TABLES)
+    .then(data => {
+      document.getElementById('mesas-loading').style.display = 'none';
+      document.getElementById('mesas-content').style.display = 'block';
+      const list = data || [];
+      if (list.length === 0) {
+        document.getElementById('mesas-content').innerHTML = '<p>No hay mesas. Crea una con "Nueva mesa".</p>';
+        return;
+      }
+      const maxX = Math.max(0, ...list.map(t => (t.position_x != null ? t.position_x : 0)));
+      const maxY = Math.max(0, ...list.map(t => (t.position_y != null ? t.position_y : 0)));
+      const cols = maxX + 1;
+      const rows = maxY + 1;
+      let gridStyle = 'grid-template-columns: repeat(' + cols + ', minmax(100px, 1fr));';
+      gridStyle += ' grid-template-rows: repeat(' + rows + ', auto);';
+      let html = '<p class="mb-2" style="font-size:0.9rem; color:#555;">Doble clic en una mesa para editar. Clic en Libre/Ocupada para cambiar estado.</p>';
+      html += '<div class="mesas-grid" style="' + gridStyle + '">';
+      list.forEach(t => {
+        const x = (t.position_x != null ? t.position_x : 0);
+        const y = (t.position_y != null ? t.position_y : 0);
+        const cap = t.capacity != null ? t.capacity : '-';
+        const occ = t.occupied === true;
+        const cls = occ ? 'ocupada' : 'libre';
+        html += '<div class="mesa-card ' + cls + '" data-id="' + t.id + '" style="grid-column:' + (x + 1) + '; grid-row:' + (y + 1) + ';" ondblclick="editMesa(' + t.id + ')">';
+        html += '<div class="mesa-num">Mesa ' + (t.number != null ? t.number : t.id) + '</div>';
+        html += '<div class="mesa-capacity">' + cap + ' personas</div>';
+        html += '<div class="mesa-estado" onclick="event.stopPropagation(); toggleOcupada(' + t.id + ',' + (occ ? 'true' : 'false') + ')" title="Clic para cambiar estado">' + (occ ? 'Ocupada' : 'Libre') + '</div>';
+        html += '<div class="mesa-edit"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); editMesa(' + t.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); delMesa(' + t.id + ')">Eliminar</button></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      document.getElementById('mesas-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('mesas-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+function toggleOcupada(id, currentlyOccupied) {
+  apiPut(API_TABLES + '/' + id, { occupied: !currentlyOccupied })
+    .then(() => { showMsg(msg, 'Estado actualizado.', 'success'); loadMesas(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function openMesaForm() {
+  document.getElementById('modal-mesa-title').textContent = 'Nueva mesa';
+  document.getElementById('mesa-id').value = '';
+  document.getElementById('mesa-number').value = '';
+  document.getElementById('mesa-capacity').value = '4';
+  document.getElementById('mesa-position-x').value = '0';
+  document.getElementById('mesa-position-y').value = '0';
+  document.getElementById('mesa-occupied').checked = false;
+  modalShow('modal-mesa');
+}
+function editMesa(id) {
+  apiGet(API_TABLES + '/' + id).then(t => {
+    document.getElementById('modal-mesa-title').textContent = 'Editar mesa';
+    document.getElementById('mesa-id').value = t.id;
+    document.getElementById('mesa-number').value = t.number != null ? t.number : t.id;
+    document.getElementById('mesa-capacity').value = t.capacity != null ? t.capacity : 4;
+    document.getElementById('mesa-position-x').value = (t.position_x != null ? t.position_x : 0);
+    document.getElementById('mesa-position-y').value = (t.position_y != null ? t.position_y : 0);
+    document.getElementById('mesa-occupied').checked = t.occupied === true;
+    modalShow('modal-mesa');
+  }).catch(err => showMsg(msg, err.message, 'error'));
+}
+function saveMesa(e) {
+  e.preventDefault();
+  const id = document.getElementById('mesa-id').value;
+  const data = {
+    number: parseInt(document.getElementById('mesa-number').value, 10),
+    capacity: parseInt(document.getElementById('mesa-capacity').value, 10),
+    position_x: parseInt(document.getElementById('mesa-position-x').value, 10) || 0,
+    position_y: parseInt(document.getElementById('mesa-position-y').value, 10) || 0,
+    occupied: document.getElementById('mesa-occupied').checked
+  };
+  const p = id ? apiPut(API_TABLES + '/' + id, data) : apiPost(API_TABLES, data);
+  p.then(() => { modalHide('modal-mesa'); showMsg(msg, 'Mesa guardada.', 'success'); loadMesas(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+function delMesa(id) {
+  if (!confirm('¿Eliminar esta mesa?')) return;
+  apiDelete(API_TABLES + '/' + id)
+    .then(() => { showMsg(msg, 'Mesa eliminada.', 'success'); loadMesas(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+loadMesas();
+</script>
+{% endblock %}
