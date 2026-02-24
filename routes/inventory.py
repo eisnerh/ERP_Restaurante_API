@@ -35,21 +35,36 @@ DEFAULT_EXCEL_PATH = os.path.join(
 
 
 def _get_low_stock_items(threshold=None, franchisee_id=None):
-    """Ítems con existencia < threshold * stock. Filtra por franchisee_id si se indica."""
+    """Ítems con existencia < threshold * stock, o stock=0, o existencia=0. Filtra por franchisee_id si se indica."""
     if threshold is None:
         threshold = DEFAULT_LOW_STOCK_THRESHOLD
-    query = InventoryItem.query.filter(InventoryItem.stock > 0)
+    query = InventoryItem.query
     if franchisee_id is not None:
         query = query.filter_by(franchisee_id=franchisee_id)
     items = query.all()
     result = []
     for it in items:
-        pct = (it.existence / it.stock) * 100.0 if it.stock else 0
-        if it.existence < threshold * it.stock:
-            suggested = it.order_quantity if it.order_quantity is not None else max(0.0, it.stock - it.existence)
+        stock_val = float(it.stock or 0)
+        existence_val = float(it.existence or 0)
+        pct = (existence_val / stock_val) * 100.0 if stock_val else 0
+        # Alerta: stock=0, existencia=0, o existencia < 10% del stock
+        is_low = stock_val == 0 or existence_val == 0 or existence_val < threshold * stock_val
+        if is_low:
+            suggested = it.order_quantity if it.order_quantity is not None else max(0.0, stock_val - existence_val)
             supplier_names = [s.name for s in it.suppliers] if it.suppliers else []
             if it.supplier and it.supplier.strip():
                 supplier_names = supplier_names + [it.supplier.strip()]
+            supplier_str = ", ".join(supplier_names) if supplier_names else it.supplier
+            # Datos de contacto del proveedor (del primer Supplier relacionado o búsqueda por nombre)
+            sup_phone = sup_contact = sup_visit_day = None
+            if it.suppliers:
+                s0 = it.suppliers[0]
+                sup_phone, sup_contact, sup_visit_day = s0.phone, s0.contact, s0.visit_day
+            elif supplier_str and franchisee_id:
+                first_name = supplier_names[0] if supplier_names else (supplier_str.split(",")[0].strip() if supplier_str else None)
+                s = Supplier.query.filter_by(franchisee_id=franchisee_id, name=first_name).first() if first_name else None
+                if s:
+                    sup_phone, sup_contact, sup_visit_day = s.phone, s.contact, s.visit_day
             result.append({
                 "id": it.id,
                 "code": getattr(it, "code", None),
@@ -60,7 +75,11 @@ def _get_low_stock_items(threshold=None, franchisee_id=None):
                 "stock": it.stock,
                 "percentage": round(pct, 2),
                 "order_quantity": it.order_quantity,
-                "supplier": ", ".join(supplier_names) if supplier_names else it.supplier,
+                "purchase_price": getattr(it, "purchase_price", None),
+                "supplier": supplier_str,
+                "supplier_phone": sup_phone,
+                "supplier_contact": sup_contact,
+                "supplier_visit_day": sup_visit_day,
                 "suggested_order": suggested,
             })
     return result
@@ -129,10 +148,13 @@ def list_inventory():
     if not fid:
         return jsonify([])
     area = request.args.get("area")
+    supplier_id = request.args.get("supplier_id", type=int)
     q = (request.args.get("q") or "").strip()
     query = InventoryItem.query.filter_by(franchisee_id=fid)
     if area in ("salon", "cocina"):
         query = query.filter_by(area=area)
+    if supplier_id:
+        query = query.join(item_suppliers).filter(item_suppliers.c.supplier_id == supplier_id).distinct()
     if q:
         query = query.outerjoin(InventoryItem.suppliers).filter(
             or_(
@@ -174,7 +196,7 @@ def create_unit():
 @inventory_bp.route("/units/<int:unit_id>", methods=["PUT"])
 def update_unit(unit_id):
     """Actualiza una unidad de medida. Body: symbol, name (opcionales)."""
-    unit = Unit.query.get_or_404(unit_id)
+    unit = db.get_or_404(Unit, unit_id)
     data = request.get_json() or {}
     if "symbol" in data:
         symbol = str(data["symbol"]).strip().upper()
@@ -193,7 +215,7 @@ def update_unit(unit_id):
 @inventory_bp.route("/units/<int:unit_id>", methods=["DELETE"])
 def delete_unit(unit_id):
     """Elimina una unidad. No se puede eliminar si algún ítem de inventario la usa."""
-    unit = Unit.query.get_or_404(unit_id)
+    unit = db.get_or_404(Unit, unit_id)
     count = InventoryItem.query.filter_by(unit=unit.symbol).count()
     if count > 0:
         return jsonify({"error": f"No se puede eliminar: {count} ítem(s) de inventario usan esta unidad"}), 400
@@ -625,7 +647,7 @@ def import_from_excel():
                 supplier_ids.append(sid)
         main_supplier = (d.get("supplier") or "").strip() or None
         if not main_supplier and supplier_ids:
-            s0 = Supplier.query.get(supplier_ids[0])
+            s0 = db.session.get(Supplier, supplier_ids[0])
             if s0:
                 main_supplier = s0.name
         item = InventoryItem(
@@ -655,14 +677,20 @@ def import_from_excel():
 def report_low_stock():
     """
     Reporte de ítems con inventario bajo (existencia < threshold * stock).
-    Query: ?threshold=0.1 (default 10%), ?format=json|csv
+    Query: ?threshold=0.1 (default 10%), ?format=json|csv, ?supplier=Nombre (filtrar por proveedor)
     """
     threshold = request.args.get("threshold", type=float)
     if threshold is None or threshold <= 0 or threshold > 1:
         threshold = DEFAULT_LOW_STOCK_THRESHOLD
+    supplier_filter = request.args.get("supplier", "").strip()
     fmt = (request.args.get("format") or "json").lower()
     fid = get_or_default_franchisee_id()
     items = _get_low_stock_items(threshold, fid)
+    if supplier_filter:
+        if supplier_filter.lower() == "sin proveedor":
+            items = [it for it in items if not (it.get("supplier") or "").strip()]
+        else:
+            items = [it for it in items if it.get("supplier") and supplier_filter.lower() in (it.get("supplier") or "").lower()]
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "threshold_percent": round(threshold * 100, 1),
@@ -670,34 +698,55 @@ def report_low_stock():
         "items": items,
     }
     if fmt == "csv":
+        safe_name = re.sub(r"[^\w\-]", "_", supplier_filter)[:50] if supplier_filter else ""
+        payload["filename"] = f"pedidos_{safe_name}.csv" if safe_name else "reporte_pedidos_completo.csv"
+        payload["items"] = sorted(payload["items"], key=lambda x: ((x.get("supplier") or "").lower(), x.get("product_name") or ""))
         return _report_as_csv(payload)
     return jsonify(payload)
 
 
-def _report_as_csv(payload):
-    """Genera respuesta CSV del reporte de faltantes (UTF-8 con BOM para Excel)."""
+def _report_as_csv(payload, include_supplier_contact=True):
+    """Genera respuesta CSV del reporte de faltantes (UTF-8 con BOM para Excel).
+    Incluye Teléfono, Contacto y Día visita del proveedor cuando estén disponibles."""
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow([
-        "Area", "Producto", "Unidad", "Existencia", "Stock", "% actual", "Pedido sugerido", "Proveedor"
-    ])
+    headers = ["Proveedor", "Teléfono", "Contacto", "Día visita", "Área", "Producto", "Unidad", "Existencia", "Stock", "% actual", "Pedido sugerido"]
+    if not include_supplier_contact:
+        headers = ["Área", "Producto", "Unidad", "Existencia", "Stock", "% actual", "Pedido sugerido", "Proveedor"]
+    writer.writerow(headers)
     for row in payload.get("items", []):
-        writer.writerow([
-            row.get("area", ""),
-            row.get("product_name", ""),
-            row.get("unit", "UND"),
-            row.get("existence", ""),
-            row.get("stock", ""),
-            str(row.get("percentage", "")) + "%",
-            row.get("suggested_order", ""),
-            row.get("supplier", ""),
-        ])
+        if include_supplier_contact:
+            writer.writerow([
+                row.get("supplier", ""),
+                row.get("supplier_phone") or "",
+                row.get("supplier_contact") or "",
+                row.get("supplier_visit_day") or "",
+                row.get("area", ""),
+                row.get("product_name", ""),
+                row.get("unit", "UND"),
+                row.get("existence", ""),
+                row.get("stock", ""),
+                str(row.get("percentage", "")) + "%",
+                row.get("suggested_order", ""),
+            ])
+        else:
+            writer.writerow([
+                row.get("area", ""),
+                row.get("product_name", ""),
+                row.get("unit", "UND"),
+                row.get("existence", ""),
+                row.get("stock", ""),
+                str(row.get("percentage", "")) + "%",
+                row.get("suggested_order", ""),
+                row.get("supplier", ""),
+            ])
     buf.seek(0)
     body = "\ufeff" + buf.getvalue()  # BOM UTF-8 para que Excel abra bien los acentos
+    filename = payload.get("filename") or "reporte_faltantes_inventario.csv"
     return Response(
         body,
         mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=reporte_faltantes_inventario.csv"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

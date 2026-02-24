@@ -21,6 +21,8 @@ class PayrollEntrySchema(ma.SQLAlchemySchema):
 
     id = ma.auto_field()
     location_id = ma.auto_field()
+    employee_id = ma.auto_field()
+    position_id = ma.auto_field()
     period_date = ma.auto_field()
     employee_name = ma.auto_field()
     entry_type = ma.auto_field()

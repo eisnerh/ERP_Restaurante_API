@@ -118,7 +118,7 @@ def main():
 
             main_supplier = (d.get("supplier") or "").strip() or None
             if not main_supplier and supplier_ids:
-                s0 = Supplier.query.get(supplier_ids[0])
+                s0 = db.session.get(Supplier, supplier_ids[0])
                 if s0:
                     main_supplier = s0.name
 

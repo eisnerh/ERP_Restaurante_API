@@ -8,9 +8,11 @@ class Payslip(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=True)  # Empleado vinculado
+    position_id = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)  # Puesto vinculado
     location_name = db.Column(db.String(120), nullable=False)
-    employee_name = db.Column(db.String(120), nullable=False)
-    position = db.Column(db.String(80))  # LIDER DE COCINA, COLABORADOR FIJO, etc.
+    employee_name = db.Column(db.String(120), nullable=False)  # Se mantiene para import/display
+    position = db.Column(db.String(80))  # LIDER DE COCINA, etc. (se mantiene para import/display)
     period_start = db.Column(db.Date, nullable=False)
     period_end = db.Column(db.Date, nullable=False)
 
@@ -30,6 +32,8 @@ class Payslip(db.Model):
     notes = db.Column(db.String(300))
 
     franchisee = db.relationship("Franchisee", backref="payslips")
+    employee = db.relationship("Employee", backref="payslips")
+    position_rel = db.relationship("Position", backref="payslips")
     lines = db.relationship("PayslipLine", backref="payslip", lazy="dynamic", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -37,16 +41,19 @@ class Payslip(db.Model):
 
 
 class PayslipLine(db.Model):
-    """Línea de asignación o deducción (SALARIO QUINCENAL, HORAS EXTRA, CCSS, etc.)."""
+    """Línea de asignación o deducción. amount/quantity pueden ser negativos (ej. horas negociables día libre)."""
     __tablename__ = "payslip_lines"
 
     id = db.Column(db.Integer, primary_key=True)
     payslip_id = db.Column(db.Integer, db.ForeignKey("payslips.id"), nullable=False)
+    deduction_type_id = db.Column(db.Integer, db.ForeignKey("deduction_types.id"), nullable=True)  # Tipo de deducción
     line_type = db.Column(db.String(20), nullable=False)  # asignacion | deduccion
     concept = db.Column(db.String(120), nullable=False)
-    amount = db.Column(db.Float, default=0)
-    quantity = db.Column(db.Float)   # ej. horas extra: 3
+    amount = db.Column(db.Float, default=0)  # Puede ser negativo (negociable)
+    quantity = db.Column(db.Float)   # ej. horas: 3 o -2 (negativo = horas a negociar)
     rate_or_pct = db.Column(db.Float)  # ej. CCSS 10.83% -> 0.1083
+
+    deduction_type = db.relationship("DeductionType", backref="payslip_lines")
 
     def __repr__(self):
         return f"<PayslipLine {self.concept} {self.amount}>"

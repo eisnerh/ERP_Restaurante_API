@@ -3,6 +3,24 @@
 {% block content %}
 <h1 class="h4 mb-3">Compras</h1>
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Gastos en compras</h5>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <input type="date" id="spending-from" class="form-control form-control-sm" style="max-width:140px">
+      <span>a</span>
+      <input type="date" id="spending-to" class="form-control form-control-sm" style="max-width:140px">
+      <select id="spending-supplier" class="form-select form-select-sm" style="max-width:180px">
+        <option value="">Todos los proveedores</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadSpending()">Ver gastos</button>
+      <a id="spending-csv-link" href="#" class="btn btn-sm btn-outline-secondary" style="display:none">Exportar CSV</a>
+    </div>
+    <div id="spending-content">
+      <p class="text-muted small mb-0">Selecciona fechas y haz clic en "Ver gastos" para ver el historial.</p>
+    </div>
+  </div>
+</div>
 <div class="card">
   <div class="card-body">
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -14,6 +32,9 @@
         <option value="cancelled">Cancelada</option>
       </select>
       <button type="button" class="btn btn-sm btn-primary" onclick="openOrderForm()">Nueva orden</button>
+      <a href="{{ url_for('web.compras_reporte') }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+        <i class="bi bi-printer"></i> Reporte / Imprimir
+      </a>
     </div>
     <div id="orders-loading" class="text-center text-muted py-4">Cargando...</div>
     <div id="orders-content" style="display:none;"></div>
@@ -28,20 +49,41 @@
         <div class="modal-body">
           <input type="hidden" id="order-id" value="">
           <div class="mb-3">
+            <label class="form-label">Fecha de compra *</label>
+            <input type="date" id="order-date" class="form-control" required>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Proveedor *</label>
-            <select id="order-supplier" class="form-select" required></select>
+            <select id="order-supplier" class="form-select" required onchange="updateOrderProductsDatalist()"></select>
           </div>
           <div class="mb-3">
             <label class="form-label">Notas</label>
             <textarea id="order-notes" class="form-control" rows="2"></textarea>
           </div>
           <h6 class="mt-3">Ítems</h6>
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadLowStockItems()" title="Carga los productos con stock bajo de este proveedor">
+              <i class="bi bi-lightning-charge"></i> Usar items con stock bajo
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleQuickAdd()" id="btn-quick-add">
+              <i class="bi bi-plus-circle"></i> Añadir con un clic
+            </button>
+            <span class="text-muted small">o escribe el producto</span>
+          </div>
+          <div id="quick-add-panel" class="border rounded p-2 mb-2" style="display:none; max-height:160px; overflow-y:auto;">
+            <p class="small text-muted mb-2">Clic en un producto para añadirlo a la orden:</p>
+            <div id="quick-add-buttons" class="d-flex flex-wrap gap-1"></div>
+          </div>
           <div id="order-items-container">
-            <div class="order-item-row mb-2 d-flex gap-2 align-items-end">
-              <input type="text" class="form-control" placeholder="Producto" name="product_name">
-              <input type="number" class="form-control" style="width:90px;" placeholder="Cant." name="quantity" value="1" min="0.01" step="0.01">
-              <input type="text" class="form-control" style="width:70px;" placeholder="UM" name="unit" value="UND">
-              <input type="number" class="form-control" style="width:100px;" placeholder="P. unit." name="unit_price" value="0" min="0" step="0.01">
+            <div class="order-item-row mb-2 d-flex gap-2 align-items-end flex-wrap">
+              <div style="flex:1; min-width:180px;">
+                <input type="hidden" name="inventory_item_id" value="">
+                <input type="text" class="form-control product-input" placeholder="Producto" name="product_name" list="order-products-datalist" autocomplete="off">
+                <datalist id="order-products-datalist"></datalist>
+              </div>
+              <input type="number" class="form-control" style="width:80px;" placeholder="Cant." name="quantity" value="1" min="0.01" step="0.01">
+              <input type="text" class="form-control" style="width:65px;" placeholder="UM" name="unit" value="UND">
+              <input type="number" class="form-control" style="width:95px;" placeholder="P. unit." name="unit_price" value="0" min="0" step="0.01" title="Precio de compra">
               <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)">-</button>
             </div>
           </div>
@@ -59,9 +101,13 @@
 <script>
 var API_PURCHASES = "{{ url_for('purchases.list_orders') }}";
 var API_PURCHASES_SUPPLIERS = "{{ url_for('purchases.list_suppliers') }}";
+var API_INV = "{{ url_for('inventory.list_inventory') }}";
+var API_INV_REPORT = "{{ url_for('inventory.report_low_stock') }}";
+var API_PURCHASES_SPENDING = "{{ url_for('purchases.spending_report') }}";
 const msg = document.getElementById('msg');
 var ordersList = [];
 var suppliersList = [];
+var inventoryItemsBySupplier = {};
 
 function loadOrders() {
   document.getElementById('orders-loading').style.display = 'block';
@@ -80,7 +126,11 @@ function loadOrders() {
       let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Nº</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       ordersList.forEach(o => {
         var statusBadge = o.status === 'draft' ? 'secondary' : o.status === 'received' ? 'success' : o.status === 'cancelled' ? 'danger' : 'info';
-        html += '<tr><td>' + (o.order_number || o.id) + '</td><td>' + (o.supplier ? o.supplier.name : '-') + '</td><td>' + (o.order_date ? new Date(o.order_date).toLocaleDateString() : '-') + '</td><td>' + (o.total != null ? parseFloat(o.total).toFixed(2) : '0.00') + '</td><td><span class="badge bg-' + statusBadge + '">' + (o.status || 'draft') + '</span></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="viewOrder(' + o.id + ')">Ver</button></td></tr>';
+        var actions = '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="viewOrder(' + o.id + ')">Ver</button>';
+        if (o.status === 'draft' || o.status === 'sent') {
+          actions += ' <button type="button" class="btn btn-sm btn-outline-success ms-1" onclick="setOrderStatus(' + o.id + ', \'received\')" title="Marcar como recibida (suma stock y existencias en inventario)">Recibida</button>';
+        }
+        html += '<tr><td>' + (o.order_number || o.id) + '</td><td>' + (o.supplier ? o.supplier.name : '-') + '</td><td>' + (o.order_date ? new Date(o.order_date).toLocaleDateString() : '-') + '</td><td>' + (o.total != null ? parseFloat(o.total).toFixed(2) : '0.00') + '</td><td><span class="badge bg-' + statusBadge + '">' + (o.status || 'draft') + '</span></td><td class="text-end">' + actions + '</td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('orders-content').innerHTML = html;
@@ -97,19 +147,150 @@ function loadSuppliers() {
     suppliersList.forEach(s => {
       sel.innerHTML += '<option value="' + s.id + '">' + (s.name || '') + '</option>';
     });
+    var selSpending = document.getElementById('spending-supplier');
+    if (selSpending) {
+      selSpending.innerHTML = '<option value="">Todos los proveedores</option>';
+      suppliersList.forEach(s => {
+        selSpending.innerHTML += '<option value="' + s.id + '">' + (s.name || '') + '</option>';
+      });
+    }
+  });
+}
+function loadInventoryForSupplier(supplierId) {
+  if (!supplierId) { inventoryItemsBySupplier = {}; return Promise.resolve([]); }
+  var url = API_INV + '?supplier_id=' + encodeURIComponent(supplierId);
+  return apiGet(url).then(data => {
+    inventoryItemsBySupplier = {};
+    (data || []).forEach(i => {
+      inventoryItemsBySupplier[i.product_name] = i;
+    });
+    return data || [];
+  });
+}
+function loadLowStockItems() {
+  var supplierId = document.getElementById('order-supplier').value;
+  var sel = document.getElementById('order-supplier');
+  var supplierName = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+  if (!supplierId || !supplierName) {
+    showMsg(msg, 'Selecciona un proveedor primero.', 'error');
+    return;
+  }
+  var url = API_INV_REPORT + '?threshold=0.1&supplier=' + encodeURIComponent(supplierName);
+  apiGet(url).then(data => {
+    var items = (data && data.items) || [];
+    if (items.length === 0) {
+      showMsg(msg, 'No hay items con stock bajo para este proveedor.', 'info');
+      return;
+    }
+    var container = document.getElementById('order-items-container');
+    container.innerHTML = '';
+    items.forEach(function(i) {
+      var qty = i.suggested_order != null ? parseFloat(i.suggested_order) : 1;
+      if (qty < 0.01) qty = 1;
+      var row = document.createElement('div');
+      row.className = 'order-item-row mb-2 d-flex gap-2 align-items-end flex-wrap';
+      row.innerHTML = '<div style="flex:1; min-width:180px;"><input type="hidden" name="inventory_item_id" value="' + (i.id || '') + '">' +
+        '<input type="text" class="form-control product-input" placeholder="Producto" name="product_name" value="' + (i.product_name || '').replace(/"/g, '&quot;') + '" list="order-products-datalist" autocomplete="off"></div>' +
+        '<input type="number" class="form-control" style="width:80px;" placeholder="Cant." name="quantity" value="' + qty + '" min="0.01" step="0.01">' +
+        '<input type="text" class="form-control" style="width:65px;" placeholder="UM" name="unit" value="' + (i.unit || 'UND') + '">' +
+        '<input type="number" class="form-control" style="width:95px;" placeholder="P. unit." name="unit_price" value="' + (i.purchase_price != null ? i.purchase_price : 0) + '" min="0" step="0.01">' +
+        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)">-</button>';
+      container.appendChild(row);
+    });
+    updateOrderProductsDatalist();
+    showMsg(msg, items.length + ' item(s) cargados con cantidades sugeridas.', 'success');
+  }).catch(function() { showMsg(msg, 'No se pudo cargar la lista.', 'error'); });
+}
+
+function toggleQuickAdd() {
+  var panel = document.getElementById('quick-add-panel');
+  var btn = document.getElementById('btn-quick-add');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    if (btn) btn.textContent = 'Ocultar lista';
+    fillQuickAddButtons();
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.innerHTML = '<i class="bi bi-plus-circle"></i> Añadir con un clic';
+  }
+}
+function fillQuickAddButtons() {
+  var container = document.getElementById('quick-add-buttons');
+  if (!container) return;
+  var items = Object.values(inventoryItemsBySupplier);
+  if (items.length === 0) {
+    container.innerHTML = '<span class="text-muted small">Selecciona un proveedor primero.</span>';
+    return;
+  }
+  container.innerHTML = '';
+  items.forEach(function(i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary';
+    btn.textContent = (i.product_name || '') + ' (' + (i.unit || 'UND') + ')';
+    btn.title = 'Precio: ' + (i.purchase_price != null ? i.purchase_price : '?');
+    btn.onclick = function() {
+      addItemFromInventory(i);
+    };
+    container.appendChild(btn);
+  });
+}
+function addItemFromInventory(inv) {
+  var row = document.createElement('div');
+  row.className = 'order-item-row mb-2 d-flex gap-2 align-items-end flex-wrap';
+  row.innerHTML = '<div style="flex:1; min-width:180px;"><input type="hidden" name="inventory_item_id" value="' + (inv.id || '') + '">' +
+    '<input type="text" class="form-control product-input" placeholder="Producto" name="product_name" value="' + (inv.product_name || '').replace(/"/g, '&quot;') + '" list="order-products-datalist" autocomplete="off"></div>' +
+    '<input type="number" class="form-control" style="width:80px;" placeholder="Cant." name="quantity" value="1" min="0.01" step="0.01">' +
+    '<input type="text" class="form-control" style="width:65px;" placeholder="UM" name="unit" value="' + (inv.unit || 'UND') + '">' +
+    '<input type="number" class="form-control" style="width:95px;" placeholder="P. unit." name="unit_price" value="' + (inv.purchase_price != null ? inv.purchase_price : 0) + '" min="0" step="0.01">' +
+    '<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)">-</button>';
+  document.getElementById('order-items-container').appendChild(row);
+}
+
+function updateOrderProductsDatalist() {
+  var supplierId = document.getElementById('order-supplier').value;
+  var datalist = document.getElementById('order-products-datalist');
+  var quickPanel = document.getElementById('quick-add-panel');
+  var btnQuick = document.getElementById('btn-quick-add');
+  if (datalist) datalist.innerHTML = '';
+  if (!supplierId) {
+    if (quickPanel) quickPanel.style.display = 'none';
+    if (btnQuick) btnQuick.innerHTML = '<i class="bi bi-plus-circle"></i> Añadir con un clic';
+    return;
+  }
+  loadInventoryForSupplier(supplierId).then(items => {
+    fillQuickAddButtons();
+    items.forEach(i => {
+      var opt = document.createElement('option');
+      opt.value = i.product_name || '';
+      opt.dataset.unit = i.unit || 'UND';
+      opt.dataset.price = i.purchase_price != null ? i.purchase_price : '';
+      opt.dataset.id = i.id || '';
+      datalist.appendChild(opt);
+    });
   });
 }
 
 function addItemRow() {
   var container = document.getElementById('order-items-container');
   var row = document.createElement('div');
-  row.className = 'order-item-row mb-2 d-flex gap-2 align-items-end';
-  row.innerHTML = '<input type="text" class="form-control" placeholder="Producto" name="product_name">' +
-    '<input type="number" class="form-control" style="width:90px;" placeholder="Cant." name="quantity" value="1" min="0.01" step="0.01">' +
-    '<input type="text" class="form-control" style="width:70px;" placeholder="UM" name="unit" value="UND">' +
-    '<input type="number" class="form-control" style="width:100px;" placeholder="P. unit." name="unit_price" value="0" min="0" step="0.01">' +
+  row.className = 'order-item-row mb-2 d-flex gap-2 align-items-end flex-wrap';
+  row.innerHTML = '<div style="flex:1; min-width:180px;"><input type="hidden" name="inventory_item_id" value="">' +
+    '<input type="text" class="form-control product-input" placeholder="Producto" name="product_name" list="order-products-datalist" autocomplete="off"></div>' +
+    '<input type="number" class="form-control" style="width:80px;" placeholder="Cant." name="quantity" value="1" min="0.01" step="0.01">' +
+    '<input type="text" class="form-control" style="width:65px;" placeholder="UM" name="unit" value="UND">' +
+    '<input type="number" class="form-control" style="width:95px;" placeholder="P. unit." name="unit_price" value="0" min="0" step="0.01">' +
     '<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)">-</button>';
   container.appendChild(row);
+  row.querySelector('.product-input').addEventListener('change', function() {
+    var inv = inventoryItemsBySupplier[this.value.trim()];
+    if (inv) {
+      var r = this.closest('.order-item-row');
+      r.querySelector('[name="inventory_item_id"]').value = inv.id || '';
+      r.querySelector('[name="unit"]').value = inv.unit || 'UND';
+      r.querySelector('[name="unit_price"]').value = inv.purchase_price != null ? inv.purchase_price : 0;
+    }
+  });
 }
 
 function removeItemRow(btn) {
@@ -120,19 +301,38 @@ function removeItemRow(btn) {
 function openOrderForm() {
   document.getElementById('modal-order-title').textContent = 'Nueva orden de compra';
   document.getElementById('order-id').value = '';
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('order-date').value = today;
   document.getElementById('order-notes').value = '';
   loadSuppliers().then(() => {
     document.getElementById('order-supplier').value = '';
     var container = document.getElementById('order-items-container');
     container.innerHTML = '';
+    var qp = document.getElementById('quick-add-panel');
+    var bq = document.getElementById('btn-quick-add');
+    if (qp) qp.style.display = 'none';
+    if (bq) bq.innerHTML = '<i class="bi bi-plus-circle"></i> Añadir con un clic';
     addItemRow();
     modalShow('modal-order');
   });
 }
 
+function setOrderStatus(id, status) {
+  apiPut(API_PURCHASES.replace(/\/$/, '') + '/' + id, { status: status })
+    .then(() => { showMsg(msg, 'Orden recibida. Stock y existencias actualizados en inventario.', 'success'); loadOrders(); loadSpending(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
 function viewOrder(id) {
   apiGet(API_PURCHASES.replace(/\/$/, '') + '/' + id).then(o => {
-    alert('Orden: ' + (o.order_number || o.id) + '\nProveedor: ' + (o.supplier ? o.supplier.name : '-') + '\nTotal: ' + (o.total || 0) + '\nEstado: ' + (o.status || 'draft') + '\n\nÍtems: ' + (o.items ? o.items.length : 0));
+    var lines = ['Orden: ' + (o.order_number || o.id), 'Proveedor: ' + (o.supplier ? o.supplier.name : '-'), 'Total: ' + (o.total != null ? parseFloat(o.total).toFixed(2) : '0.00'), 'Estado: ' + (o.status || 'draft'), ''];
+    if (o.items && o.items.length) {
+      lines.push('Ítems:');
+      o.items.forEach(i => {
+        var subtotal = (i.quantity || 0) * (i.unit_price || 0);
+        lines.push('  • ' + (i.product_name || '') + ' x' + i.quantity + ' ' + (i.unit || '') + ' @ ' + (i.unit_price != null ? parseFloat(i.unit_price).toFixed(2) : '0') + ' = ' + subtotal.toFixed(2));
+      });
+    }
+    alert(lines.join('\n'));
   }).catch(err => showMsg(msg, err.message, 'error'));
 }
 
@@ -142,12 +342,14 @@ function getOrderItemsData() {
   rows.forEach(row => {
     var product = row.querySelector('[name="product_name"]').value.trim();
     var qty = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+    var invId = row.querySelector('[name="inventory_item_id"]');
     if (product && qty > 0) {
       items.push({
         product_name: product,
         quantity: qty,
         unit: (row.querySelector('[name="unit"]').value || 'UND').trim(),
-        unit_price: parseFloat(row.querySelector('[name="unit_price"]').value) || 0
+        unit_price: parseFloat(row.querySelector('[name="unit_price"]').value) || 0,
+        inventory_item_id: invId && invId.value ? parseInt(invId.value, 10) : null
       });
     }
   });
@@ -161,11 +363,58 @@ function saveOrder(e) {
   var items = getOrderItemsData();
   if (!supplierId) { showMsg(msg, 'Selecciona un proveedor.', 'error'); return; }
   if (items.length === 0) { showMsg(msg, 'Añade al menos un ítem.', 'error'); return; }
-  var data = { supplier_id: parseInt(supplierId, 10), items: items, notes: document.getElementById('order-notes').value.trim() || null };
+  var orderDate = document.getElementById('order-date').value;
+  var data = { supplier_id: parseInt(supplierId, 10), order_date: orderDate || null, items: items, notes: document.getElementById('order-notes').value.trim() || null };
   apiPost(API_PURCHASES, data)
-    .then(() => { modalHide('modal-order'); showMsg(msg, 'Orden creada.', 'success'); loadOrders(); })
+    .then(() => { modalHide('modal-order'); showMsg(msg, 'Orden creada.', 'success'); loadOrders(); loadSpending(); })
     .catch(err => showMsg(msg, err.message, 'error'));
 }
+
+function loadSpending() {
+  var from = document.getElementById('spending-from').value;
+  var to = document.getElementById('spending-to').value;
+  var supplierId = document.getElementById('spending-supplier').value;
+  var url = API_PURCHASES_SPENDING + '?';
+  if (from) url += 'from=' + encodeURIComponent(from) + '&';
+  if (to) url += 'to=' + encodeURIComponent(to) + '&';
+  if (supplierId) url += 'supplier_id=' + encodeURIComponent(supplierId) + '&';
+  var csvUrl = url + 'format=csv';
+  document.getElementById('spending-csv-link').href = csvUrl;
+  document.getElementById('spending-csv-link').style.display = 'inline-block';
+  document.getElementById('spending-csv-link').target = '_blank';
+  apiGet(url)
+    .then(data => {
+      var total = data.total != null ? parseFloat(data.total).toFixed(2) : '0.00';
+      var count = data.count || 0;
+      var html = '<p class="mb-1"><strong>Total gastado:</strong> ' + total + ' (' + count + ' orden(es) recibida(s))</p>';
+      if (data.orders && data.orders.length) {
+        html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Nº</th><th>Fecha</th><th>Proveedor</th><th>Total</th></tr></thead><tbody>';
+        data.orders.forEach(o => {
+          html += '<tr><td>' + (o.order_number || o.id) + '</td><td>' + (o.order_date ? o.order_date.split('T')[0] : '-') + '</td><td>' + (o.supplier || '-') + '</td><td>' + (o.total != null ? parseFloat(o.total).toFixed(2) : '0') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+      }
+      document.getElementById('spending-content').innerHTML = html || '<p class="text-muted mb-0">No hay compras recibidas en el periodo.</p>';
+    })
+    .catch(() => { document.getElementById('spending-content').innerHTML = '<p class="text-muted mb-0">No se pudo cargar el reporte.</p>'; });
+}
+
+document.getElementById('order-items-container').addEventListener('change', function(e) {
+  if (e.target.classList && e.target.classList.contains('product-input')) {
+    var inv = inventoryItemsBySupplier[e.target.value.trim()];
+    if (inv) {
+      var r = e.target.closest('.order-item-row');
+      if (r) {
+        var hid = r.querySelector('[name="inventory_item_id"]');
+        if (hid) hid.value = inv.id || '';
+        var u = r.querySelector('[name="unit"]');
+        if (u) u.value = inv.unit || 'UND';
+        var p = r.querySelector('[name="unit_price"]');
+        if (p) p.value = inv.purchase_price != null ? inv.purchase_price : 0;
+      }
+    }
+  }
+});
 
 loadSuppliers();
 loadOrders();

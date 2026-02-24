@@ -25,21 +25,111 @@
         </select>
       </div>
       <div class="mb-3">
-        <label class="form-label">URL del logo</label>
-        <input type="text" id="logo-url" class="form-control" placeholder="/static/images/logo.png o https://...">
-        <small class="text-muted">Ruta relativa o URL completa. Dejar vacío para solo texto.</small>
+        <label class="form-label">Logo</label>
+        <div class="d-flex flex-wrap gap-2 align-items-start">
+          <div class="flex-grow-1" style="min-width:200px;">
+            <input type="text" id="logo-url" class="form-control" placeholder="/static/images/logo.png o URL">
+            <small class="text-muted">Ruta o URL. O sube una imagen abajo.</small>
+          </div>
+          <div>
+            <input type="file" id="logo-file" class="d-none" accept="image/png,image/jpeg,image/gif,image/webp">
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('logo-file').click()">
+              <i class="bi bi-upload me-1"></i> Seleccionar y subir
+            </button>
+          </div>
+        </div>
+        <div id="logo-preview" class="mt-2" style="display:none;">
+          <img id="logo-preview-img" src="" alt="Vista previa" style="max-height:60px; max-width:200px; object-fit:contain;">
+        </div>
       </div>
       <div class="mb-3">
-        <label class="form-label">URL del favicon</label>
-        <input type="text" id="favicon-url" class="form-control" placeholder="/static/images/favicon.ico">
+        <label class="form-label">Favicon</label>
+        <div class="d-flex flex-wrap gap-2 align-items-start">
+          <div class="flex-grow-1" style="min-width:200px;">
+            <input type="text" id="favicon-url" class="form-control" placeholder="/static/images/favicon.ico o URL">
+          </div>
+          <div>
+            <input type="file" id="favicon-file" class="d-none" accept="image/png,image/x-icon,image/jpeg,image/gif,image/webp,.ico">
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('favicon-file').click()">
+              <i class="bi bi-upload me-1"></i> Seleccionar y subir
+            </button>
+          </div>
+        </div>
+        <div id="favicon-preview" class="mt-2" style="display:none;">
+          <img id="favicon-preview-img" src="" alt="Vista previa" style="max-height:32px; max-width:32px;">
+        </div>
       </div>
       <button type="submit" class="btn btn-primary">Guardar</button>
     </form>
   </div>
 </div>
+<div class="card mt-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-calendar-event me-2"></i>Feriados</h5>
+    <p class="text-muted small mb-3">Feriados de Costa Rica. Se actualizan automáticamente al iniciar la aplicación.</p>
+    <div class="d-flex gap-2 mb-3">
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="syncHolidays()"><i class="bi bi-arrow-repeat me-1"></i>Sincronizar ahora</button>
+      <select id="holidays-year" class="form-select form-select-sm" style="max-width:100px" onchange="loadHolidays()"></select>
+    </div>
+    <div id="holidays-loading" class="text-muted small" style="display:none;">Cargando...</div>
+    <div id="holidays-list" class="small"></div>
+  </div>
+</div>
 <script>
 var API_SETTINGS = "{{ url_for('settings.get_settings') }}";
+var API_UPLOAD = "{{ url_for('settings.upload_image') }}";
+var API_HOLIDAYS = "{{ url_for('holidays.list_holidays') }}";
+var API_HOLIDAYS_SYNC = "{{ url_for('holidays.sync') }}";
 const msg = document.getElementById('msg');
+
+function showMsg(txt, isError) {
+  if (!msg) return;
+  msg.textContent = txt;
+  msg.className = 'msg alert ' + (isError ? 'alert-danger' : 'alert-success');
+  msg.style.display = 'block';
+}
+
+function updateLogoPreview(url) {
+  var el = document.getElementById('logo-preview');
+  var img = document.getElementById('logo-preview-img');
+  if (url && url.trim()) {
+    img.src = url;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function updateFaviconPreview(url) {
+  var el = document.getElementById('favicon-preview');
+  var img = document.getElementById('favicon-preview-img');
+  if (url && url.trim()) {
+    img.src = url;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function uploadImage(fileInputId, urlInputId, previewFn) {
+  var fileInput = document.getElementById(fileInputId);
+  var urlInput = document.getElementById(urlInputId);
+  if (!fileInput.files || !fileInput.files[0]) return;
+  var file = fileInput.files[0];
+  var fd = new FormData();
+  fd.append('file', file);
+  showMsg('Subiendo imagen...', false);
+  fetch(API_UPLOAD, { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      urlInput.value = data.url || '';
+      previewFn(data.url);
+      showMsg('Imagen subida. Haz clic en Guardar para aplicar.', false);
+    })
+    .catch(e => { showMsg('Error: ' + e.message, true); })
+    .finally(() => { fileInput.value = ''; });
+}
 
 function loadSettings() {
   fetch(API_SETTINGS)
@@ -49,8 +139,10 @@ function loadSettings() {
       document.getElementById('nav-icon').value = s.nav_icon || '';
       document.getElementById('logo-url').value = s.logo_url || '';
       document.getElementById('favicon-url').value = s.favicon_url || '';
+      updateLogoPreview(s.logo_url || '');
+      updateFaviconPreview(s.favicon_url || '');
     })
-    .catch(e => { if (msg) { msg.textContent = 'Error: ' + e.message; msg.className = 'msg alert alert-danger'; msg.style.display = 'block'; } });
+    .catch(e => { showMsg('Error: ' + e.message, true); });
 }
 
 function saveSettings(e) {
@@ -61,19 +153,75 @@ function saveSettings(e) {
     logo_url: document.getElementById('logo-url').value.trim() || '',
     favicon_url: document.getElementById('favicon-url').value.trim() || ''
   };
-  if (!data.app_name) { alert('El nombre es obligatorio'); return; }
+  if (!data.app_name) { showMsg('El nombre es obligatorio', true); return; }
   fetch(API_SETTINGS, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   })
   .then(r => r.json())
-  .then(() => {
-    if (msg) { msg.textContent = 'Configuración guardada. Recarga la página para ver los cambios.'; msg.className = 'msg alert alert-success'; msg.style.display = 'block'; }
-  })
-  .catch(err => { if (msg) { msg.textContent = 'Error: ' + err.message; msg.className = 'msg alert alert-danger'; msg.style.display = 'block'; } });
+  .then(() => { showMsg('Configuración guardada. Recarga la página para ver los cambios.', false); })
+  .catch(err => { showMsg('Error: ' + err.message, true); });
 }
 
-document.addEventListener('DOMContentLoaded', loadSettings);
+function loadHolidays() {
+  var year = document.getElementById('holidays-year').value;
+  document.getElementById('holidays-loading').style.display = 'block';
+  document.getElementById('holidays-list').innerHTML = '';
+  fetch(API_HOLIDAYS + '?year=' + (year || new Date().getFullYear()))
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('holidays-loading').style.display = 'none';
+      if (!data.length) {
+        document.getElementById('holidays-list').innerHTML = '<p class="text-muted mb-0">No hay feriados. Haz clic en Sincronizar.</p>';
+        return;
+      }
+      var html = '<ul class="list-group list-group-flush">';
+      data.forEach(function(h) {
+        html += '<li class="list-group-item d-flex justify-content-between py-2"><span>' + (h.date || '') + '</span><span>' + (h.name || '') + '</span></li>';
+      });
+      html += '</ul>';
+      document.getElementById('holidays-list').innerHTML = html;
+    })
+    .catch(function() {
+      document.getElementById('holidays-loading').style.display = 'none';
+      document.getElementById('holidays-list').innerHTML = '<p class="text-muted mb-0">No se pudieron cargar.</p>';
+    });
+}
+function syncHolidays() {
+  showMsg('Sincronizando feriados...', false);
+  fetch(API_HOLIDAYS_SYNC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  })
+  .then(r => r.json())
+  .then(function(j) {
+    if (j.error) throw new Error(j.error);
+    showMsg((j.message || 'Feriados sincronizados.') + ' (' + (j.added || 0) + ' añadidos)', false);
+    loadHolidays();
+  })
+  .catch(function(e) { showMsg('Error: ' + (e.message || e), true); });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  loadSettings();
+  var y = new Date().getFullYear();
+  var sel = document.getElementById('holidays-year');
+  for (var i = y; i <= y + 1; i++) {
+    var opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    sel.appendChild(opt);
+  }
+  loadHolidays();
+  document.getElementById('logo-file').addEventListener('change', function() {
+    if (this.files && this.files[0]) uploadImage('logo-file', 'logo-url', updateLogoPreview);
+  });
+  document.getElementById('favicon-file').addEventListener('change', function() {
+    if (this.files && this.files[0]) uploadImage('favicon-file', 'favicon-url', updateFaviconPreview);
+  });
+  document.getElementById('logo-url').addEventListener('input', function() { updateLogoPreview(this.value); });
+  document.getElementById('favicon-url').addEventListener('input', function() { updateFaviconPreview(this.value); });
+});
 </script>
 {% endblock %}

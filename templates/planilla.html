@@ -1,49 +1,163 @@
 {% extends "base.html" %}
 {% block title %}Planilla{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Planilla</h1>
+<h1 class="h4 mb-4">Planilla</h1>
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <h5 class="card-title mb-2">Ubicaciones (tiendas)</h5>
-    <p class="mb-3"><button type="button" class="btn btn-primary" onclick="openLocForm()">Nueva ubicación</button> <button type="button" class="btn btn-outline-secondary btn-sm" onclick="importExcel()">Importar desde Excel</button></p>
-    <div id="loc-loading" class="text-center text-muted py-4">Cargando...</div>
-    <div id="loc-content" style="display:none;"></div>
-  </div>
-</div>
+<nav class="nav nav-tabs mb-4" id="planilla-tabs" role="tablist">
+  <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-ubicaciones" type="button">1. Ubicaciones</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-empleados" type="button">2. Empleados</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-puestos" type="button">3. Puestos</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-deducciones" type="button">4. Tipos deducción</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-registros" type="button">5. Registros</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-desgloses" type="button">4. Desgloses</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-resumen" type="button">5. Resumen PDF</button>
+</nav>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <h5 class="card-title mb-2">Registros de planilla (empleados / MERMAS)</h5>
-    <p class="mb-3"><button type="button" class="btn btn-primary" onclick="openEntryForm()">Nuevo registro</button></p>
-    <div class="row g-2 mb-3">
-      <div class="col-auto">
-        <label class="form-label">Ubicación</label>
-        <select id="filter-loc" class="form-select" style="min-width:180px;" onchange="loadEntries()"></select>
-      </div>
-      <div class="col-auto">
-        <label class="form-label">Fecha periodo (YYYY-MM-DD)</label>
-        <input type="date" id="filter-period" class="form-control" onchange="loadEntries()">
+<div class="tab-content">
+  <!-- 1. Ubicaciones -->
+  <div class="tab-pane fade show active" id="tab-ubicaciones">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-geo-alt me-2"></i>Ubicaciones (tiendas / sucursales)</h5>
+        <p class="text-muted small mb-3">Define las sucursales donde se registran empleados. Luego importa o ingresa registros manualmente.</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary" onclick="openLocForm()"><i class="bi bi-plus-lg me-1"></i>Nueva ubicación</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="importExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Importar desde Excel</button>
+        </div>
+        <div id="loc-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="loc-content" style="display:none;"></div>
       </div>
     </div>
-    <div id="ent-loading" class="text-center text-muted py-4">Cargando...</div>
-    <div id="ent-content" style="display:none;"></div>
   </div>
-</div>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <h5 class="card-title mb-2">Desgloses de pago (payslips)</h5>
-    <p class="mb-3">Importar Excel de desglose por empleado. Descarga PDF para imprimir y firmar.</p>
-    <div id="ps-loading" class="text-center text-muted py-4">Cargando...</div>
-    <div id="ps-content" style="display:none;"></div>
+  <!-- 2. Empleados -->
+  <div class="tab-pane fade" id="tab-empleados">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-people me-2"></i>Empleados</h5>
+        <p class="text-muted small mb-3">Empleados de la franquicia. Los desgloses de planilla se vinculan al empleado por nombre.</p>
+        <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
+          <button type="button" class="btn btn-primary" onclick="openEmpForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo empleado</button>
+          <div>
+            <label class="form-label small mb-0">Ubicación</label>
+            <select id="filter-emp-loc" class="form-select form-select-sm" style="min-width:180px;" onchange="loadEmployees()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+        </div>
+        <div id="emp-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="emp-content" style="display:none;"></div>
+      </div>
+    </div>
   </div>
-</div>
-<div class="card">
-  <div class="card-body">
-    <h5 class="card-title mb-2">Resumen quincena (PDF)</h5>
-    <a href="/api/payroll/payslips/summary-pdf?location_name=PLAZA%20SAN%20CARLOS&period_start=2026-02-01&period_end=2026-02-15" class="btn btn-primary" target="_blank">Abrir resumen PDF (ejemplo)</a>
+
+  <!-- 3. Puestos -->
+  <div class="tab-pane fade" id="tab-puestos">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-briefcase me-2"></i>Puestos / Cargos</h5>
+        <p class="text-muted small mb-3">Tipos: empleado, administrador, administrativo, inventario. Crea puestos personalizados sobre la marcha.</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary" onclick="openPosForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo puesto</button>
+        </div>
+        <div id="pos-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="pos-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Tipos de deducción -->
+  <div class="tab-pane fade" id="tab-deducciones">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-calculator me-2"></i>Tipos de deducción</h5>
+        <p class="text-muted small mb-3">Pueden ser negativos o positivos. Ej: día libre intercambiado = horas negativas (negociables).</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary" onclick="openDedTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
+        </div>
+        <div id="ded-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="ded-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Registros de planilla -->
+  <div class="tab-pane fade" id="tab-registros">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-person-lines-fill me-2"></i>Registros de planilla</h5>
+        <p class="text-muted small mb-3">Empleados, mermas y cargos adicionales por ubicación y período.</p>
+        <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
+          <button type="button" class="btn btn-primary" onclick="openEntryForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo registro</button>
+          <div>
+            <label class="form-label small mb-0">Ubicación</label>
+            <select id="filter-loc" class="form-select form-select-sm" style="min-width:180px;" onchange="loadEntries()"></select>
+          </div>
+          <div>
+            <label class="form-label small mb-0">Período</label>
+            <input type="date" id="filter-period" class="form-control form-control-sm" onchange="loadEntries()">
+          </div>
+        </div>
+        <div id="ent-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="ent-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Desgloses de pago -->
+  <div class="tab-pane fade" id="tab-desgloses">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-receipt-cutoff me-2"></i>Desgloses de pago (payslips)</h5>
+        <p class="text-muted small mb-3">Importa el Excel de desglose por empleado. Descarga el PDF individual para imprimir y firmar.</p>
+        <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
+          <button type="button" class="btn btn-outline-primary" onclick="openImportPayslipModal()"><i class="bi bi-upload me-1"></i>Importar Excel desglose</button>
+          <div>
+            <label class="form-label small mb-0">Ubicación</label>
+            <select id="filter-ps-loc" class="form-select form-select-sm" style="min-width:180px;" onchange="loadPayslips()"></select>
+          </div>
+          <div>
+            <label class="form-label small mb-0">Período inicio</label>
+            <input type="date" id="filter-ps-start" class="form-control form-control-sm" onchange="loadPayslips()">
+          </div>
+          <div>
+            <label class="form-label small mb-0">Período fin</label>
+            <input type="date" id="filter-ps-end" class="form-control form-control-sm" onchange="loadPayslips()">
+          </div>
+        </div>
+        <div id="ps-loading" class="text-center text-muted py-4">Cargando...</div>
+        <div id="ps-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Resumen PDF -->
+  <div class="tab-pane fade" id="tab-resumen">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-file-pdf me-2"></i>Resumen quincena (PDF)</h5>
+        <p class="text-muted small mb-3">Genera un PDF con el resumen de lo pagado: lista de colaboradores y monto depositado.</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Ubicación</label>
+            <select id="summary-loc" class="form-select"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Inicio período</label>
+            <input type="date" id="summary-start" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Fin período</label>
+            <input type="date" id="summary-end" class="form-control">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <a id="summary-pdf-link" href="#" class="btn btn-primary w-100" target="_blank"><i class="bi bi-file-pdf me-1"></i>Generar PDF</a>
+          </div>
+        </div>
+        <p class="text-muted small mt-2 mb-0">Selecciona ubicación y rango de fechas. Si no hay períodos, importa primero el Excel de desglose.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -57,7 +171,7 @@
           <input type="hidden" id="loc-id" value="">
           <div class="mb-3">
             <label class="form-label">Nombre</label>
-            <input type="text" id="loc-name" class="form-control" required>
+            <input type="text" id="loc-name" class="form-control" required placeholder="Ej. Plaza San Carlos">
           </div>
         </div>
         <div class="modal-footer">
@@ -77,41 +191,54 @@
       <form onsubmit="saveEntry(event)">
         <div class="modal-body">
           <input type="hidden" id="entry-id" value="">
-          <div class="mb-3">
-            <label class="form-label">Ubicación</label>
-            <select id="entry-location-id" class="form-select" required></select>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Ubicación *</label>
+              <select id="entry-location-id" class="form-select" required></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fecha período *</label>
+              <input type="date" id="entry-period-date" class="form-control" required>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Fecha periodo (YYYY-MM-DD)</label>
-            <input type="date" id="entry-period-date" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Nombre empleado</label>
-            <input type="text" id="entry-employee-name" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tipo</label>
-            <select id="entry-type" class="form-select">
-              <option value="employee">Empleado</option>
-              <option value="mermas">Mermas</option>
-              <option value="other">Otro</option>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Empleado</label>
+            <select id="entry-employee-id" class="form-select mb-1" onchange="onEntryEmployeeChange()">
+              <option value="">-- Seleccionar empleado (opcional) --</option>
             </select>
+            <label class="form-label small">o nombre manual *</label>
+            <input type="text" id="entry-employee-name" class="form-control" required placeholder="Nombre completo">
           </div>
-          <div class="mb-3">
-            <label class="form-label">Hrs extra</label>
-            <input type="number" id="entry-hrs" class="form-control" step="0.5" placeholder="Opcional">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Puesto</label>
+              <div class="input-group">
+                <select id="entry-position-id" class="form-select">
+                  <option value="">-- Seleccionar --</option>
+                  <option value="mermas">Mermas</option>
+                </select>
+                <button type="button" class="btn btn-outline-secondary" onclick="openPosFormFromEntry()" title="Crear puesto"><i class="bi bi-plus-lg"></i></button>
+              </div>
+              <small class="text-muted">empleado, administrador, administrativo, inventario o personalizado</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Hrs extra</label>
+              <input type="number" id="entry-hrs" class="form-control" step="0.5" placeholder="Opcional">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Créditos comida</label>
-            <input type="number" id="entry-creditos" class="form-control" step="0.01" value="0">
+          <div class="row g-2 mt-1">
+            <div class="col-md-6">
+              <label class="form-label">Créditos comida</label>
+              <input type="number" id="entry-creditos" class="form-control" step="0.01" value="0">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vale efectivo</label>
+              <input type="number" id="entry-vale" class="form-control" step="0.01" placeholder="Opcional">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Vale efectivo</label>
-            <input type="number" id="entry-vale" class="form-control" step="0.01" placeholder="Opcional">
-          </div>
-          <div class="mb-3">
+          <div class="mb-3 mt-2">
             <label class="form-label">Notas</label>
-            <input type="text" id="entry-notes" class="form-control">
+            <input type="text" id="entry-notes" class="form-control" placeholder="Opcional">
           </div>
         </div>
         <div class="modal-footer">
@@ -123,42 +250,308 @@
   </div>
 </div>
 
+<!-- Modal empleado -->
+<div id="modal-emp" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-emp')">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-emp-title">Nuevo empleado</h5></div>
+      <form onsubmit="saveEmp(event)">
+        <div class="modal-body">
+          <input type="hidden" id="emp-id" value="">
+          <div class="row g-2">
+            <div class="col-md-8">
+              <label class="form-label">Nombre completo *</label>
+              <input type="text" id="emp-name" class="form-control" required placeholder="Nombre completo">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cédula</label>
+              <input type="text" id="emp-cedula" class="form-control" placeholder="Identificación">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Ubicación</label>
+              <select id="emp-location-id" class="form-select">
+                <option value="">Sin asignar</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Puesto</label>
+              <select id="emp-position-id" class="form-select">
+                <option value="">Sin asignar</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">Código interno</label>
+              <input type="text" id="emp-code" class="form-control" placeholder="Opcional">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Número de cuenta</label>
+              <input type="text" id="emp-numero-cuenta" class="form-control" placeholder="Para depósitos">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Salario base (₡/mes)</label>
+              <input type="number" id="emp-salario-base" class="form-control" step="0.01" placeholder="Aguinaldo, prestaciones">
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">Fecha contratación</label>
+              <input type="date" id="emp-fecha-ingreso" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Fecha salida</label>
+              <input type="date" id="emp-fecha-salida" class="form-control" placeholder="Si ya no labora">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tipo contrato</label>
+              <select id="emp-tipo-contrato" class="form-select">
+                <option value="indefinido">Indefinido</option>
+                <option value="temporal">Temporal</option>
+                <option value="prueba">Prueba</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Jornada</label>
+              <select id="emp-jornada" class="form-select">
+                <option value="completa">Completa</option>
+                <option value="media">Media jornada</option>
+                <option value="parcial">Parcial</option>
+              </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+              <div class="form-check">
+                <input type="checkbox" id="emp-active" class="form-check-input" checked>
+                <label class="form-check-label" for="emp-active">Activo</label>
+              </div>
+            </div>
+          </div>
+          <p class="text-muted small mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Vacaciones: 14 días por 50 semanas (CR). Aguinaldo: 1/12 por mes laborado.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-emp')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal registrar vacaciones -->
+<div id="modal-vac" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-vac')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Registrar vacaciones tomadas</h5></div>
+      <form onsubmit="saveVacation(event)">
+        <div class="modal-body">
+          <input type="hidden" id="vac-emp-id" value="">
+          <p class="small text-muted mb-2" id="vac-emp-info">Empleado: -</p>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Desde</label>
+              <input type="date" id="vac-desde" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Hasta</label>
+              <input type="date" id="vac-hasta" class="form-control" required>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-6">
+              <label class="form-label">Días tomados</label>
+              <input type="number" id="vac-dias" class="form-control" step="0.5" required placeholder="Ej. 5">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tipo</label>
+              <select id="vac-tipo" class="form-select">
+                <option value="vacaciones">Vacaciones</option>
+                <option value="permiso">Permiso</option>
+                <option value="incapacidad">Incapacidad</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Notas</label>
+            <input type="text" id="vac-notes" class="form-control" placeholder="Opcional">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Registrar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-vac')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal puesto -->
+<div id="modal-pos" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-pos')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-pos-title">Nuevo puesto</h5></div>
+      <form onsubmit="savePos(event)">
+        <div class="modal-body">
+          <input type="hidden" id="pos-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="pos-name" class="form-control" required placeholder="Ej. Líder de Cocina">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo</label>
+            <select id="pos-type" class="form-select">
+              <option value="empleado">Empleado</option>
+              <option value="administrador">Administrador</option>
+              <option value="administrativo">Administrativo</option>
+              <option value="inventario">Inventario</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-pos')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal tipo deducción -->
+<div id="modal-ded" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-ded')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-ded-title">Nuevo tipo de deducción</h5></div>
+      <form onsubmit="saveDedType(event)">
+        <div class="modal-body">
+          <input type="hidden" id="ded-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="ded-name" class="form-control" required placeholder="Ej. CCSS, Día libre intercambiado">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="ded-desc" class="form-control" placeholder="Ej. Horas negativas = negociables">
+          </div>
+          <div class="form-check mb-2">
+            <input type="checkbox" id="ded-can-negative" class="form-check-input">
+            <label class="form-check-label" for="ded-can-negative">Permitir valores negativos (ej. horas negociables)</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="ded-is-hours" class="form-check-input">
+            <label class="form-check-label" for="ded-is-hours">Basado en horas (quantity)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-ded')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal importar desglose -->
+<div id="modal-import-ps" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-import-ps')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Importar Excel de desglose</h5></div>
+      <form onsubmit="importPayslipExcel(event)">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nombre ubicación</label>
+            <input type="text" id="import-ps-loc" class="form-control" required placeholder="Ej. PLAZA SAN CARLOS">
+            <small class="text-muted">Debe coincidir con el nombre en el Excel.</small>
+          </div>
+          <div class="form-check mb-2">
+            <input type="checkbox" id="import-ps-replace" class="form-check-input" checked>
+            <label class="form-check-label" for="import-ps-replace">Reemplazar desgloses existentes del mismo empleado y período</label>
+          </div>
+          <p class="text-muted small mb-0">El archivo debe estar en <code>excel_docs/</code> con nombre que contenga "PLANILLA" y "PLAZA".</p>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Importar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-import-ps')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
+const API_LOC = '/api/payroll/locations';
+const API_EMP = '/api/payroll/employees';
+const API_POS = '/api/payroll/positions';
+const API_DED = '/api/payroll/deduction-types';
+const API_ENT = '/api/payroll/entries';
+const API_PS = '/api/payroll/payslips';
+const API_PS_PERIODS = '/api/payroll/payslips/periods';
 const msg = document.getElementById('msg');
 let locations = [];
+let positions = [];
+
+function showMsg(text, type) {
+  if (!msg) return;
+  msg.textContent = text;
+  msg.className = 'msg alert ' + (type === 'error' ? 'alert-danger' : 'alert-success');
+  msg.style.display = 'block';
+}
+
+function fillLocSelect(selId) {
+  const sel = document.getElementById(selId || 'entry-location-id');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+}
 
 function loadLocations() {
   document.getElementById('loc-loading').style.display = 'block';
   document.getElementById('loc-content').style.display = 'none';
-  apiGet('/api/payroll/locations')
+  return apiGet(API_LOC)
     .then(data => {
       locations = data || [];
       document.getElementById('loc-loading').style.display = 'none';
       document.getElementById('loc-content').style.display = 'block';
       let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Nombre</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       locations.forEach(l => {
-        html += '<tr><td>' + l.id + '</td><td>' + (l.name || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editLoc(' + l.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delLoc(' + l.id + ')">Eliminar</button></td></tr>';
+        html += '<tr><td>' + l.id + '</td><td>' + (l.name || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editLoc(' + l.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delLoc(' + l.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
-      document.getElementById('loc-content').innerHTML = html || '<p>No hay ubicaciones.</p>';
-      const sel = document.getElementById('filter-loc');
-      sel.innerHTML = '<option value="">Todas</option>';
-      locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
-      fillLocSelect();
+      document.getElementById('loc-content').innerHTML = locations.length ? html : '<p class="text-muted mb-0">No hay ubicaciones. Crea una o importa desde Excel.</p>';
+      const filterLoc = document.getElementById('filter-loc');
+      if (filterLoc) {
+        filterLoc.innerHTML = '<option value="">Todas</option>';
+        locations.forEach(l => { filterLoc.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+      }
+      fillLocSelect('entry-location-id');
+      const psLoc = document.getElementById('filter-ps-loc');
+      if (psLoc) {
+        psLoc.innerHTML = '<option value="">Todas</option>';
+        locations.forEach(l => { psLoc.innerHTML += '<option value="' + (l.name || '').replace(/"/g, '&quot;') + '">' + (l.name || '') + '</option>'; });
+      }
+      const empLoc = document.getElementById('filter-emp-loc');
+      if (empLoc) {
+        empLoc.innerHTML = '<option value="">Todas</option>';
+        locations.forEach(l => { empLoc.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+      }
+      fillEmpLocSelect();
+      loadPositions();
+      loadDeductionTypes();
+      fillPosSelects();
     })
-    .catch(e => { document.getElementById('loc-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+    .catch(e => { document.getElementById('loc-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); throw e; });
 }
-function fillLocSelect() {
-  const sel = document.getElementById('entry-location-id');
-  sel.innerHTML = '<option value="">-- Ubicación --</option>';
-  locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
-}
+
 function openLocForm() {
   document.getElementById('modal-loc-title').textContent = 'Nueva ubicación';
   document.getElementById('loc-id').value = '';
   document.getElementById('loc-name').value = '';
   modalShow('modal-loc');
 }
+
 function editLoc(id) {
   const l = locations.find(x => x.id === id);
   if (!l) return;
@@ -167,19 +560,21 @@ function editLoc(id) {
   document.getElementById('loc-name').value = l.name || '';
   modalShow('modal-loc');
 }
+
 function saveLoc(e) {
   e.preventDefault();
   const id = document.getElementById('loc-id').value;
   const data = { name: document.getElementById('loc-name').value.trim() };
-  const p = id ? apiPut('/api/payroll/locations/' + id, data) : apiPost('/api/payroll/locations', data);
-  p.then(() => { modalHide('modal-loc'); showMsg(msg, 'Guardado.', 'success'); loadLocations(); loadEntries(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  const p = id ? apiPut(API_LOC + '/' + id, data) : apiPost(API_LOC, data);
+  p.then(() => { modalHide('modal-loc'); showMsg('Ubicación guardada.', 'success'); loadLocations(); loadEntries(); })
+    .catch(err => showMsg(err.message, 'error'));
 }
+
 function delLoc(id) {
-  if (!confirm('¿Eliminar esta ubicación y sus registros?')) return;
-  apiDelete('/api/payroll/locations/' + id)
-    .then(() => { showMsg(msg, 'Ubicación eliminada.', 'success'); loadLocations(); loadEntries(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  if (!confirm('¿Eliminar esta ubicación? Se eliminarán también sus registros de planilla.')) return;
+  apiDelete(API_LOC + '/' + id)
+    .then(() => { showMsg('Ubicación eliminada.', 'success'); loadLocations(); loadEntries(); })
+    .catch(err => showMsg(err.message, 'error'));
 }
 
 function loadEntries() {
@@ -187,7 +582,7 @@ function loadEntries() {
   const period = document.getElementById('filter-period').value;
   document.getElementById('ent-loading').style.display = 'block';
   document.getElementById('ent-content').style.display = 'none';
-  let url = '/api/payroll/entries?';
+  let url = API_ENT + '?';
   if (locId) url += 'location_id=' + locId + '&';
   if (period) url += 'period_date=' + period;
   apiGet(url)
@@ -197,87 +592,502 @@ function loadEntries() {
       const list = data || [];
       let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Empleado</th><th>Tipo</th><th>Hrs extra</th><th>Créditos</th><th>Vale</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(o => {
-        html += '<tr><td>' + o.id + '</td><td>' + (o.employee_name || '') + '</td><td>' + (o.entry_type || '') + '</td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
+        let tipo = o.entry_type || (o.position_id ? (positions.find(p => p.id === o.position_id)?.position_type : null) || 'empleado';
+        if (tipo === 'employee') tipo = 'empleado';
+        const badge = tipo === 'mermas' ? 'warning' : tipo === 'administrador' ? 'info' : tipo === 'administrativo' ? 'success' : tipo === 'inventario' ? 'dark' : 'primary';
+        html += '<tr><td>' + o.id + '</td><td>' + (o.employee_name || '') + '</td><td><span class="badge bg-' + badge + '">' + tipo + '</span></td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
-      document.getElementById('ent-content').innerHTML = html || '<p>No hay registros.</p>';
+      document.getElementById('ent-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay registros. Filtra por ubicación/período o crea uno nuevo.</p>';
     })
-    .catch(e => { document.getElementById('ent-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+    .catch(e => { document.getElementById('ent-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
+}
+
+function loadEmployees() {
+  const locId = document.getElementById('filter-emp-loc').value;
+  document.getElementById('emp-loading').style.display = 'block';
+  document.getElementById('emp-content').style.display = 'none';
+  let url = API_EMP + (locId ? '?location_id=' + locId : '');
+  apiGet(url)
+    .then(data => {
+      document.getElementById('emp-loading').style.display = 'none';
+      document.getElementById('emp-content').style.display = 'block';
+      const list = data || [];
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover table-sm"><thead><tr><th>Nombre</th><th>Ubicación</th><th>Contratación</th><th>Vac. disp.</th><th>Antig.</th><th>Aguinaldo</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      list.forEach(e => {
+        const locName = locations.find(l => l.id === e.location_id);
+        const fCont = e.fecha_ingreso ? e.fecha_ingreso.split('T')[0] : '-';
+        const vac = e.vacation_days != null ? e.vacation_days : '-';
+        const antig = e.antiguedad_meses != null ? e.antiguedad_meses + ' m' : '-';
+        const agu = e.aguinaldo_proporcional != null && e.aguinaldo_proporcional > 0 ? '₡ ' + Number(e.aguinaldo_proporcional).toLocaleString() : '-';
+        html += '<tr><td>' + (e.name || '') + (e.active === false ? ' <span class="badge bg-secondary">Inactivo</span>' : '') + '</td><td>' + (locName ? locName.name : '-') + '</td><td>' + fCont + '</td><td>' + vac + '</td><td>' + antig + '</td><td>' + agu + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEmp(' + e.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-primary" onclick="openVacationModal(' + e.id + ')">Vac.</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEmp(' + e.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('emp-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay empleados. Crea uno nuevo.</p>';
+    })
+    .catch(e => { document.getElementById('emp-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
+}
+
+function fillEmpLocSelect() {
+  const sel = document.getElementById('emp-location-id');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Sin asignar</option>';
+  locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
+}
+function openEmpForm() {
+  document.getElementById('modal-emp-title').textContent = 'Nuevo empleado';
+  document.getElementById('emp-id').value = '';
+  document.getElementById('emp-name').value = '';
+  document.getElementById('emp-cedula').value = '';
+  document.getElementById('emp-code').value = '';
+  document.getElementById('emp-numero-cuenta').value = '';
+  document.getElementById('emp-salario-base').value = '';
+  document.getElementById('emp-fecha-ingreso').value = '';
+  document.getElementById('emp-fecha-salida').value = '';
+  document.getElementById('emp-tipo-contrato').value = 'indefinido';
+  document.getElementById('emp-jornada').value = 'completa';
+  document.getElementById('emp-active').checked = true;
+  document.getElementById('emp-position-id').value = '';
+  fillEmpLocSelect();
+  fillPosSelects();
+  modalShow('modal-emp');
+}
+
+function editEmp(id) {
+  apiGet(API_EMP + '/' + id).then(e => {
+    document.getElementById('modal-emp-title').textContent = 'Editar empleado';
+    document.getElementById('emp-id').value = e.id;
+    document.getElementById('emp-name').value = e.name || '';
+    document.getElementById('emp-cedula').value = e.cedula || '';
+    document.getElementById('emp-code').value = e.code || '';
+    document.getElementById('emp-numero-cuenta').value = e.numero_cuenta || '';
+    document.getElementById('emp-salario-base').value = e.salario_base != null ? e.salario_base : '';
+    document.getElementById('emp-fecha-ingreso').value = e.fecha_ingreso ? e.fecha_ingreso.split('T')[0] : '';
+    document.getElementById('emp-fecha-salida').value = e.fecha_salida ? e.fecha_salida.split('T')[0] : '';
+    document.getElementById('emp-tipo-contrato').value = e.tipo_contrato || 'indefinido';
+    document.getElementById('emp-jornada').value = e.jornada || 'completa';
+    document.getElementById('emp-active').checked = e.active !== false;
+    fillEmpLocSelect();
+    fillPosSelects();
+    document.getElementById('emp-location-id').value = e.location_id || '';
+    document.getElementById('emp-position-id').value = e.position_id || '';
+    modalShow('modal-emp');
+  }).catch(err => showMsg(err.message, 'error'));
+}
+
+function openVacationModal(empId) {
+  apiGet(API_EMP + '/' + empId).then(e => {
+    document.getElementById('vac-emp-id').value = empId;
+    document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Vacaciones disponibles: ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días';
+    document.getElementById('vac-desde').value = '';
+    document.getElementById('vac-hasta').value = '';
+    document.getElementById('vac-dias').value = '';
+    document.getElementById('vac-tipo').value = 'vacaciones';
+    document.getElementById('vac-notes').value = '';
+    modalShow('modal-vac');
+  }).catch(err => showMsg(err.message, 'error'));
+}
+
+function saveVacation(ev) {
+  ev.preventDefault();
+  const empId = document.getElementById('vac-emp-id').value;
+  const data = {
+    fecha_desde: document.getElementById('vac-desde').value,
+    fecha_hasta: document.getElementById('vac-hasta').value,
+    dias_tomados: parseFloat(document.getElementById('vac-dias').value) || 0,
+    tipo: document.getElementById('vac-tipo').value,
+    notes: document.getElementById('vac-notes').value.trim() || null
+  };
+  apiPost(API_EMP + '/' + empId + '/vacation-records', data)
+    .then(() => { modalHide('modal-vac'); showMsg('Vacaciones registradas.', 'success'); loadEmployees(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function saveEmp(e) {
+  e.preventDefault();
+  const id = document.getElementById('emp-id').value;
+  const data = {
+    name: document.getElementById('emp-name').value.trim(),
+    cedula: document.getElementById('emp-cedula').value.trim() || null,
+    location_id: document.getElementById('emp-location-id').value ? parseInt(document.getElementById('emp-location-id').value, 10) : null,
+    position_id: document.getElementById('emp-position-id').value ? parseInt(document.getElementById('emp-position-id').value, 10) : null,
+    code: document.getElementById('emp-code').value.trim() || null,
+    numero_cuenta: document.getElementById('emp-numero-cuenta').value.trim() || null,
+    salario_base: document.getElementById('emp-salario-base').value ? parseFloat(document.getElementById('emp-salario-base').value) : null,
+    fecha_ingreso: document.getElementById('emp-fecha-ingreso').value || null,
+    fecha_salida: document.getElementById('emp-fecha-salida').value || null,
+    tipo_contrato: document.getElementById('emp-tipo-contrato').value || 'indefinido',
+    jornada: document.getElementById('emp-jornada').value || 'completa',
+    active: document.getElementById('emp-active').checked
+  };
+  const p = id ? apiPut(API_EMP + '/' + id, data) : apiPost(API_EMP, data);
+  p.then(() => { modalHide('modal-emp'); showMsg('Empleado guardado.', 'success'); loadEmployees(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function delEmp(id) {
+  if (!confirm('¿Eliminar este empleado?')) return;
+  apiDelete(API_EMP + '/' + id)
+    .then(() => { showMsg('Empleado eliminado.', 'success'); loadEmployees(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function loadPositions() {
+  document.getElementById('pos-loading').style.display = 'block';
+  document.getElementById('pos-content').style.display = 'none';
+  apiGet(API_POS)
+    .then(data => {
+      positions = data || [];
+      document.getElementById('pos-loading').style.display = 'none';
+      document.getElementById('pos-content').style.display = 'block';
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Nombre</th><th>Tipo</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      positions.forEach(p => {
+        html += '<tr><td>' + (p.name || '') + '</td><td><span class="badge bg-secondary">' + (p.position_type || '') + '</span></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editPos(' + p.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delPos(' + p.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('pos-content').innerHTML = positions.length ? html : '<p class="text-muted mb-0">No hay puestos. Crea uno nuevo.</p>';
+      fillPosSelects();
+    })
+    .catch(e => { document.getElementById('pos-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
+}
+
+function fillPosSelects() {
+  const entrySel = document.getElementById('entry-position-id');
+  const empSel = document.getElementById('emp-position-id');
+  if (entrySel) {
+    entrySel.innerHTML = '<option value="">-- Seleccionar --</option><option value="mermas">Mermas</option>';
+    positions.forEach(p => { entrySel.innerHTML += '<option value="' + p.id + '">' + (p.name || '') + ' (' + (p.position_type || '') + ')</option>'; });
+  }
+  if (empSel) {
+    empSel.innerHTML = '<option value="">Sin asignar</option>';
+    positions.forEach(p => { empSel.innerHTML += '<option value="' + p.id + '">' + (p.name || '') + '</option>'; });
+  }
+}
+
+function openPosForm() {
+  document.getElementById('modal-pos-title').textContent = 'Nuevo puesto';
+  document.getElementById('pos-id').value = '';
+  document.getElementById('pos-name').value = '';
+  document.getElementById('pos-type').value = 'empleado';
+  modalShow('modal-pos');
+}
+
+function openPosFormFromEntry() {
+  openPosForm();
+  document.getElementById('modal-pos').dataset.returnTo = 'entry';
+}
+
+function editPos(id) {
+  apiGet(API_POS + '/' + id).then(p => {
+    document.getElementById('modal-pos-title').textContent = 'Editar puesto';
+    document.getElementById('pos-id').value = p.id;
+    document.getElementById('pos-name').value = p.name || '';
+    document.getElementById('pos-type').value = p.position_type || 'empleado';
+    modalShow('modal-pos');
+  }).catch(err => showMsg(err.message, 'error'));
+}
+
+function savePos(e) {
+  e.preventDefault();
+  const id = document.getElementById('pos-id').value;
+  const data = { name: document.getElementById('pos-name').value.trim(), position_type: document.getElementById('pos-type').value };
+  const p = id ? apiPut(API_POS + '/' + id, data) : apiPost(API_POS, data);
+  p.then(() => {
+    modalHide('modal-pos');
+    showMsg('Puesto guardado.', 'success');
+    loadPositions();
+    if (document.getElementById('modal-pos').dataset.returnTo === 'entry') {
+      document.getElementById('modal-pos').dataset.returnTo = '';
+    }
+  }).catch(err => showMsg(err.message, 'error'));
+}
+
+function delPos(id) {
+  if (!confirm('¿Eliminar este puesto?')) return;
+  apiDelete(API_POS + '/' + id)
+    .then(() => { showMsg('Puesto eliminado.', 'success'); loadPositions(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function loadDeductionTypes() {
+  document.getElementById('ded-loading').style.display = 'block';
+  document.getElementById('ded-content').style.display = 'none';
+  apiGet(API_DED)
+    .then(data => {
+      document.getElementById('ded-loading').style.display = 'none';
+      document.getElementById('ded-content').style.display = 'block';
+      const list = data || [];
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Nombre</th><th>Descripción</th><th>Negativos</th><th>Horas</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      list.forEach(d => {
+        html += '<tr><td>' + (d.name || '') + '</td><td>' + (d.description || '-') + '</td><td>' + (d.can_be_negative ? 'Sí' : 'No') + '</td><td>' + (d.is_hours_based ? 'Sí' : 'No') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editDedType(' + d.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delDedType(' + d.id + ')">Eliminar</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('ded-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay tipos de deducción.</p>';
+    })
+    .catch(e => { document.getElementById('ded-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
+}
+
+function openDedTypeForm() {
+  document.getElementById('modal-ded-title').textContent = 'Nuevo tipo de deducción';
+  document.getElementById('ded-id').value = '';
+  document.getElementById('ded-name').value = '';
+  document.getElementById('ded-desc').value = '';
+  document.getElementById('ded-can-negative').checked = false;
+  document.getElementById('ded-is-hours').checked = false;
+  modalShow('modal-ded');
+}
+
+function editDedType(id) {
+  apiGet(API_DED + '/' + id).then(d => {
+    document.getElementById('modal-ded-title').textContent = 'Editar tipo de deducción';
+    document.getElementById('ded-id').value = d.id;
+    document.getElementById('ded-name').value = d.name || '';
+    document.getElementById('ded-desc').value = d.description || '';
+    document.getElementById('ded-can-negative').checked = d.can_be_negative || false;
+    document.getElementById('ded-is-hours').checked = d.is_hours_based || false;
+    modalShow('modal-ded');
+  }).catch(err => showMsg(err.message, 'error'));
+}
+
+function saveDedType(e) {
+  e.preventDefault();
+  const id = document.getElementById('ded-id').value;
+  const data = {
+    name: document.getElementById('ded-name').value.trim(),
+    description: document.getElementById('ded-desc').value.trim() || null,
+    can_be_negative: document.getElementById('ded-can-negative').checked,
+    is_hours_based: document.getElementById('ded-is-hours').checked
+  };
+  const p = id ? apiPut(API_DED + '/' + id, data) : apiPost(API_DED, data);
+  p.then(() => { modalHide('modal-ded'); showMsg('Tipo guardado.', 'success'); loadDeductionTypes(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function delDedType(id) {
+  if (!confirm('¿Eliminar este tipo de deducción?')) return;
+  apiDelete(API_DED + '/' + id)
+    .then(() => { showMsg('Tipo eliminado.', 'success'); loadDeductionTypes(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+let employees = [];
+function onEntryEmployeeChange() {
+  const sel = document.getElementById('entry-employee-id');
+  const emp = employees.find(e => e.id === parseInt(sel.value, 10));
+  if (emp) document.getElementById('entry-employee-name').value = emp.name || '';
+}
+function fillEmpSelect(selId) {
+  const sel = document.getElementById(selId || 'entry-employee-id');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- Seleccionar empleado (opcional) --</option>';
+  employees.forEach(e => { sel.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; });
+  if (currentVal) sel.value = currentVal;
 }
 function openEntryForm() {
   document.getElementById('modal-entry-title').textContent = 'Nuevo registro';
   document.getElementById('entry-id').value = '';
   document.getElementById('entry-period-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('entry-employee-id').value = '';
   document.getElementById('entry-employee-name').value = '';
-  document.getElementById('entry-type').value = 'employee';
+  document.getElementById('entry-position-id').value = '';
   document.getElementById('entry-hrs').value = '';
   document.getElementById('entry-creditos').value = '0';
   document.getElementById('entry-vale').value = '';
   document.getElementById('entry-notes').value = '';
-  fillLocSelect();
+  fillLocSelect('entry-location-id');
+  fillEmpSelect('entry-employee-id');
+  fillPosSelects();
   modalShow('modal-entry');
 }
+
 function editEntry(id) {
-  apiGet('/api/payroll/entries/' + id).then(o => {
+  apiGet(API_ENT + '/' + id).then(o => {
     document.getElementById('modal-entry-title').textContent = 'Editar registro';
     document.getElementById('entry-id').value = o.id;
     document.getElementById('entry-location-id').value = o.location_id || '';
-    document.getElementById('entry-period-date').value = o.period_date || '';
+    document.getElementById('entry-period-date').value = o.period_date ? o.period_date.split('T')[0] : '';
+    document.getElementById('entry-employee-id').value = o.employee_id || '';
     document.getElementById('entry-employee-name').value = o.employee_name || '';
-    document.getElementById('entry-type').value = o.entry_type || 'employee';
+    document.getElementById('entry-position-id').value = o.entry_type === 'mermas' ? 'mermas' : (o.position_id || '');
     document.getElementById('entry-hrs').value = o.hrs_extra != null ? o.hrs_extra : '';
     document.getElementById('entry-creditos').value = o.creditos_comida != null ? o.creditos_comida : '0';
     document.getElementById('entry-vale').value = o.vale_efectivo != null ? o.vale_efectivo : '';
     document.getElementById('entry-notes').value = o.notes || '';
-    fillLocSelect();
+    fillLocSelect('entry-location-id');
+    fillEmpSelect('entry-employee-id');
     modalShow('modal-entry');
-  }).catch(err => showMsg(msg, err.message, 'error'));
+  }).catch(err => showMsg(err.message, 'error'));
 }
+
 function saveEntry(e) {
   e.preventDefault();
   const id = document.getElementById('entry-id').value;
+  const empId = document.getElementById('entry-employee-id').value;
+  const posVal = document.getElementById('entry-position-id').value;
   const data = {
     location_id: parseInt(document.getElementById('entry-location-id').value, 10),
     period_date: document.getElementById('entry-period-date').value,
+    employee_id: empId ? parseInt(empId, 10) : null,
     employee_name: document.getElementById('entry-employee-name').value.trim(),
-    entry_type: document.getElementById('entry-type').value,
+    position_id: posVal && posVal !== 'mermas' ? parseInt(posVal, 10) : null,
+    entry_type: posVal === 'mermas' ? 'mermas' : (positions.find(p => p.id === parseInt(posVal, 10))?.position_type || 'empleado'),
     hrs_extra: document.getElementById('entry-hrs').value ? parseFloat(document.getElementById('entry-hrs').value) : null,
     creditos_comida: parseFloat(document.getElementById('entry-creditos').value) || 0,
     vale_efectivo: document.getElementById('entry-vale').value ? parseFloat(document.getElementById('entry-vale').value) : null,
     notes: document.getElementById('entry-notes').value.trim() || null
   };
-  const p = id ? apiPut('/api/payroll/entries/' + id, data) : apiPost('/api/payroll/entries', data);
-  p.then(() => { modalHide('modal-entry'); showMsg(msg, 'Guardado.', 'success'); loadEntries(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  const p = id ? apiPut(API_ENT + '/' + id, data) : apiPost(API_ENT, data);
+  p.then(() => { modalHide('modal-entry'); showMsg('Registro guardado.', 'success'); loadEntries(); })
+    .catch(err => showMsg(err.message, 'error'));
 }
+
 function delEntry(id) {
   if (!confirm('¿Eliminar este registro?')) return;
-  apiDelete('/api/payroll/entries/' + id)
-    .then(() => { showMsg(msg, 'Registro eliminado.', 'success'); loadEntries(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  apiDelete(API_ENT + '/' + id)
+    .then(() => { showMsg('Registro eliminado.', 'success'); loadEntries(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
+function loadPayslips() {
+  const loc = document.getElementById('filter-ps-loc');
+  const locName = loc ? loc.value : '';
+  const start = document.getElementById('filter-ps-start').value;
+  const end = document.getElementById('filter-ps-end').value;
+  document.getElementById('ps-loading').style.display = 'block';
+  document.getElementById('ps-content').style.display = 'none';
+  let url = API_PS + '?';
+  if (locName) url += 'location_name=' + encodeURIComponent(locName) + '&';
+  if (start) url += 'period_start=' + start + '&';
+  if (end) url += 'period_end=' + end;
+  apiGet(url)
+    .then(data => {
+      document.getElementById('ps-loading').style.display = 'none';
+      document.getElementById('ps-content').style.display = 'block';
+      const list = data || [];
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Ubicación</th><th>Período</th><th class="text-end">Total</th><th></th></tr></thead><tbody>';
+      list.forEach(p => {
+        const total = p.total_depositado != null ? '₡ ' + Number(p.total_depositado).toLocaleString() : '-';
+        const period = (p.period_start || '') + ' a ' + (p.period_end || '');
+        html += '<tr><td>' + (p.employee_name || '') + '</td><td>' + (p.position || '-') + '</td><td>' + (p.location_name || '') + '</td><td>' + period + '</td><td class="text-end">' + total + '</td><td><a href="' + API_PS + '/' + p.id + '/pdf" class="btn btn-sm btn-primary" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('ps-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay desgloses. Importa el Excel de planilla en el botón superior.</p>';
+    })
+    .catch(() => { document.getElementById('ps-loading').style.display = 'none'; document.getElementById('ps-content').innerHTML = '<p class="text-muted">No se pudieron cargar los desgloses.</p>'; document.getElementById('ps-content').style.display = 'block'; });
+}
+
+function openImportPayslipModal() {
+  document.getElementById('import-ps-loc').value = locations.length ? locations[0].name : '';
+  document.getElementById('import-ps-replace').checked = true;
+  modalShow('modal-import-ps');
+}
+
+function importPayslipExcel(e) {
+  e.preventDefault();
+  const locName = document.getElementById('import-ps-loc').value.trim();
+  const replace = document.getElementById('import-ps-replace').checked;
+  fetch('/api/payroll/import-payslip-excel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location_name: locName, replace: replace })
+  })
+  .then(r => r.json())
+  .then(j => {
+    if (j.error) throw new Error(j.error);
+    modalHide('modal-import-ps');
+    showMsg('Importados ' + (j.payslips_created || 0) + ' desgloses.', 'success');
+    loadPayslips();
+    loadSummaryPeriods();
+  })
+  .catch(err => showMsg(err.message, 'error'));
+}
+
+function loadSummaryPeriods() {
+  apiGet(API_PS_PERIODS).then(data => {
+    const periods = (data && data.periods) || [];
+    const sel = document.getElementById('summary-loc');
+    const startEl = document.getElementById('summary-start');
+    const endEl = document.getElementById('summary-end');
+    sel.innerHTML = '<option value="">-- Seleccionar período --</option>';
+    periods.forEach(p => {
+      if (!p.location_name || !p.period_start || !p.period_end) return;
+      const opt = document.createElement('option');
+      opt.value = (p.location_name || '') + '|' + (p.period_start || '') + '|' + (p.period_end || '');
+      opt.textContent = (p.location_name || '') + ' (' + (p.period_start || '') + ' a ' + (p.period_end || '') + ')';
+      opt.dataset.loc = p.location_name || '';
+      opt.dataset.start = p.period_start || '';
+      opt.dataset.end = p.period_end || '';
+      sel.appendChild(opt);
+    });
+    if (periods.length === 0 && locations.length > 0) {
+      locations.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = (l.name || '') + '||';
+        opt.textContent = (l.name || '') + ' (ingresar fechas abajo)';
+        opt.dataset.loc = l.name || '';
+        opt.dataset.start = '';
+        opt.dataset.end = '';
+        sel.appendChild(opt);
+      });
+    }
+    sel.onchange = function() {
+      const o = this.options[this.selectedIndex];
+      if (o && o.dataset) {
+        if (o.dataset.start) { startEl.value = o.dataset.start; endEl.value = o.dataset.end; }
+        updateSummaryLink();
+      }
+    };
+    if (periods.length && periods[0].location_name) {
+      startEl.value = periods[0].period_start || '';
+      endEl.value = periods[0].period_end || '';
+      sel.selectedIndex = 1;
+    }
+    updateSummaryLink();
+  }).catch(() => updateSummaryLink());
+}
+
+function updateSummaryLink() {
+  const loc = document.getElementById('summary-loc');
+  const start = document.getElementById('summary-start').value;
+  const end = document.getElementById('summary-end').value;
+  const link = document.getElementById('summary-pdf-link');
+  const o = loc && loc.selectedIndex >= 0 ? loc.options[loc.selectedIndex] : null;
+  const locName = (o && o.dataset && o.dataset.loc) ? o.dataset.loc : (loc && loc.value ? loc.value.split('|')[0] : '');
+  if (locName && start && end) {
+    link.href = '/api/payroll/payslips/summary-pdf?location_name=' + encodeURIComponent(locName) + '&period_start=' + start + '&period_end=' + end;
+    link.classList.remove('disabled');
+  } else {
+    link.href = '#';
+    link.classList.add('disabled');
+  }
 }
 
 function importExcel() {
-  fetch('/api/payroll/import-excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_date: new Date().toISOString().slice(0, 10), replace_all: true }) })
-    .then(r => r.json())
-    .then(j => { showMsg(msg, 'Importado: ' + (j.entries || 0) + ' registros.', 'success'); loadLocations(); loadEntries(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  fetch('/api/payroll/import-excel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ period_date: new Date().toISOString().slice(0, 10), replace_all: true })
+  })
+  .then(r => r.json())
+  .then(j => {
+    if (j.error) throw new Error(j.error);
+    showMsg('Importados ' + (j.entries || 0) + ' registros en ' + (j.locations || 0) + ' ubicaciones.', 'success');
+    loadLocations();
+    loadEntries();
+  })
+  .catch(err => showMsg(err.message, 'error'));
 }
 
-document.getElementById('ps-loading').style.display = 'block';
-apiGet('/api/payroll/payslips').then(data => {
-  document.getElementById('ps-loading').style.display = 'none';
-  document.getElementById('ps-content').style.display = 'block';
-  const list = data || [];
-  let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Ubicación</th><th>Período</th><th>Total</th><th>PDF</th></tr></thead><tbody>';
-  list.forEach(p => {
-    const total = p.total_depositado != null ? '₡ ' + Number(p.total_depositado).toLocaleString() : '-';
-    html += '<tr><td>' + (p.employee_name || '') + '</td><td>' + (p.position || '-') + '</td><td>' + (p.location_name || '') + '</td><td>' + (p.period_start || '') + '</td><td>' + total + '</td><td><a href="/api/payroll/payslips/' + p.id + '/pdf" class="btn btn-sm btn-primary" target="_blank">Ver PDF</a></td></tr>';
-  });
-  html += '</tbody></table></div>';
-  document.getElementById('ps-content').innerHTML = html || '<p>No hay desgloses. Importa el Excel de planilla.</p>';
-}).catch(() => { document.getElementById('ps-loading').style.display = 'none'; document.getElementById('ps-content').innerHTML = '<p>No se pudieron cargar los desgloses.</p>'; document.getElementById('ps-content').style.display = 'block'; });
+document.getElementById('summary-start').addEventListener('change', updateSummaryLink);
+document.getElementById('summary-end').addEventListener('change', updateSummaryLink);
 
-loadLocations().then(() => loadEntries());
+loadLocations().then(() => apiGet(API_EMP)).then(data => {
+  employees = data || [];
+  loadEmployees();
+  loadEntries();
+  loadPayslips();
+  loadSummaryPeriods();
+}).catch(e => showMsg('Error: ' + (e.message || 'cargando datos'), 'error'));
 </script>
 {% endblock %}

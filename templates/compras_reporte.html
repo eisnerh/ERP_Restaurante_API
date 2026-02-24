@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Reporte de pedidos de compra{% endblock %}
+{% block content %}
+<style media="print">
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+</style>
+<h1 class="h4 mb-3">Reporte de pedidos de compra</h1>
+<div class="no-print card mb-3">
+  <div class="card-body">
+    <form method="get" action="{{ url_for('web.compras_reporte') }}" class="d-flex flex-wrap gap-2 align-items-end">
+      <div>
+        <label class="form-label small mb-0">Desde</label>
+        <input type="date" name="from" class="form-control form-control-sm" value="{{ date_from }}" style="max-width:140px">
+      </div>
+      <div>
+        <label class="form-label small mb-0">Hasta</label>
+        <input type="date" name="to" class="form-control form-control-sm" value="{{ date_to }}" style="max-width:140px">
+      </div>
+      <div>
+        <label class="form-label small mb-0">Proveedor</label>
+        <select name="supplier_id" class="form-select form-select-sm" style="max-width:200px">
+          <option value="">Todos</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+        <a href="{{ url_for('web.compras') }}" class="btn btn-sm btn-outline-secondary">Volver a Compras</a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+          <i class="bi bi-printer"></i> Imprimir
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    {% if date_from or date_to %}
+    <p class="text-muted small mb-2">Período: {{ date_from or 'inicio' }} a {{ date_to or 'hoy' }}{% if supplier_name %} | Proveedor: {{ supplier_name }}{% endif %}</p>
+    {% endif %}
+    {% if not orders %}
+    <p class="text-muted mb-0">No hay pedidos recibidos en el período seleccionado.</p>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered">
+        <thead>
+          <tr>
+            <th>Nº Orden</th>
+            <th>Fecha</th>
+            <th>Proveedor</th>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>UM</th>
+            <th>P. unit.</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+          {% for it in o.items %}
+          <tr>
+            {% if loop.first %}
+            <td rowspan="{{ o.items|length }}">{{ o.order_number or o.id }}</td>
+            <td rowspan="{{ o.items|length }}">{{ o.order_date.strftime('%d/%m/%Y') if o.order_date else '-' }}</td>
+            <td rowspan="{{ o.items|length }}">{{ o.supplier.name if o.supplier else '-' }}</td>
+            {% endif %}
+            <td>{{ it.product_name or '-' }}</td>
+            <td class="text-end">{{ "%.2f"|format(it.quantity or 0) }}</td>
+            <td>{{ it.unit or 'UND' }}</td>
+            <td class="text-end">{{ "%.2f"|format(it.unit_price or 0) }}</td>
+            <td class="text-end">{{ "%.2f"|format((it.quantity or 0) * (it.unit_price or 0)) }}</td>
+          </tr>
+          {% endfor %}
+          {% if o.items %}
+          <tr class="table-light">
+            <td colspan="7" class="text-end fw-semibold">Total orden:</td>
+            <td class="text-end fw-semibold">{{ "%.2f"|format(o.total or 0) }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 mb-0 fw-semibold">Total general: {{ "%.2f"|format((orders|sum(attribute='total')) or 0) }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

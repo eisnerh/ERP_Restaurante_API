@@ -1,4 +1,14 @@
 /* Helpers para CRUD contra la API. Si el servidor devuelve HTML (ej. 404), no se intenta parsear como JSON. */
+var API_TIMEOUT_MS = 20000;
+
+function fetchWithTimeout(url, opts, timeout) {
+  timeout = timeout || API_TIMEOUT_MS;
+  var controller = new AbortController();
+  var tid = setTimeout(function() { controller.abort(); }, timeout);
+  var p = fetch(url, Object.assign({}, opts || {}, { signal: controller.signal }));
+  return p.finally(function() { clearTimeout(tid); });
+}
+
 function safeJson(r) {
   return r.text().then(function(t) {
     if (!r.ok) {
@@ -14,24 +24,36 @@ function safeJson(r) {
   });
 }
 function apiGet(url) {
-  return fetch(url).then(safeJson);
+  return fetchWithTimeout(url).then(safeJson).catch(function(e) {
+    if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica la conexión.');
+    throw e;
+  });
 }
 function apiPost(url, data) {
-  return fetch(url, {
+  return fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data || {}),
-  }).then(safeJson);
+  }).then(safeJson).catch(function(e) {
+    if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica la conexión.');
+    throw e;
+  });
 }
 function apiPut(url, data) {
-  return fetch(url, {
+  return fetchWithTimeout(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data || {}),
-  }).then(safeJson);
+  }).then(safeJson).catch(function(e) {
+    if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica la conexión.');
+    throw e;
+  });
 }
 function apiDelete(url) {
-  return fetch(url, { method: 'DELETE' }).then(safeJson);
+  return fetchWithTimeout(url, { method: 'DELETE' }).then(safeJson).catch(function(e) {
+    if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica la conexión.');
+    throw e;
+  });
 }
 function showMsg(el, text, type) {
   if (!el) return;

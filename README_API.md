@@ -31,6 +31,7 @@ python scripts/import_inventory_excel.py --franchisee-id 1
 | GET/POST | `/api/inventory/suppliers` | Proveedores |
 | GET/POST | `/api/clients` | Clientes |
 | GET/POST | `/api/purchases` | Órdenes de compra |
+| GET | `/api/purchases/spending` | Reporte de gastos (`?from=`, `?to=`, `?supplier_id=`, `?format=csv`) |
 | GET/POST | `/api/franchisees` | Franquiciados |
 | POST | `/api/franchisees/current` | Establecer franquiciado actual |
 
@@ -52,7 +53,8 @@ python scripts/import_inventory_excel.py --franchisee-id 1
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET/POST | `/api/payroll/locations` | Ubicaciones de planilla |
-| GET/POST | `/api/payroll/entries` | Registros (`?period_date=`, `?location_id=`) |
+| GET/POST | `/api/payroll/employees` | Empleados de la franquicia (`?location_id=`, `?active=`) |
+| GET/POST | `/api/payroll/entries` | Registros (`?period_date=`, `?location_id=`, `employee_id`) |
 | POST | `/api/payroll/import-excel` | Importar desde Excel |
 | GET | `/api/payroll/payslips` | Desgloses de pago |
 | GET | `/api/payroll/payslips/<id>/pdf` | PDF del desglose para imprimir |

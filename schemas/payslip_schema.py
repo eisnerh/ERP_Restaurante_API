@@ -9,6 +9,7 @@ class PayslipLineSchema(ma.SQLAlchemySchema):
         load_instance = True
 
     id = ma.auto_field()
+    deduction_type_id = ma.auto_field()
     line_type = ma.auto_field()
     concept = ma.auto_field()
     amount = ma.auto_field()
@@ -22,6 +23,8 @@ class PayslipSchema(ma.SQLAlchemySchema):
         load_instance = True
 
     id = ma.auto_field()
+    employee_id = ma.auto_field()
+    position_id = ma.auto_field()
     location_name = ma.auto_field()
     employee_name = ma.auto_field()
     position = ma.auto_field()

@@ -26,9 +26,8 @@ wheels/
 .installed.cfg
 *.egg
 
-# Base de datos
+# Base de datos (PostgreSQL - archivos locales por si acaso)
 *.db
-*.sqlite3
 *.db-journal
 
 # Variables de entorno (no versionar secretos)
@@ -58,8 +57,9 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Excel temporales (archivos abiertos)
+# Excel temporales y respaldos
 ~$*.xlsx
+*.backup.xlsx
 ~$*.xls
 ~$*.xlsm
 README.md

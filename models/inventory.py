@@ -27,6 +27,7 @@ class InventoryItem(db.Model):
     order_quantity = db.Column(db.Float, default=None)  # Pedido sugerido (opcional)
     supplier = db.Column(db.String(120))  # Texto libre / primer proveedor (legacy)
     responsible = db.Column(db.String(120))  # Responsable del ítem (ej. Arlen Nuñez)
+    purchase_price = db.Column(db.Float, default=None)  # Último precio de compra (histórico)
 
     franchisee = db.relationship("Franchisee", backref="inventory_items")
     suppliers = db.relationship(

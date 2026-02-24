@@ -17,11 +17,11 @@
         {% if app_logo_url %}<img src="{{ app_logo_url }}" alt="{{ app_name }}" height="28" class="d-inline-block">{% endif %}
         {% if app_nav_icon %}<i class="bi {{ app_nav_icon }}"></i>{% endif %}
         <div class="d-flex flex-column">
-          <span class="fw-semibold text-dark" style="line-height: 1.2;">{{ app_name }}</span>
-          <span class="text-muted small" style="line-height: 1.2; font-size: 0.85rem;">{{ current_franchisee.name if current_franchisee else 'Sucursal' }}</span>
+          <span class="fw-semibold" style="line-height: 1.2; color: #fff;">{{ app_name }}</span>
+          <span class="small" style="line-height: 1.2; font-size: 0.85rem; color: rgba(255,255,255,0.85);">{{ current_franchisee.name if current_franchisee else 'Sucursal' }}</span>
         </div>
       </a>
-      <button class="btn btn-link text-dark p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-label="Abrir menú">
+      <button class="btn btn-link p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-label="Abrir menú" style="color: #fff;">
         <i class="bi bi-list fs-3"></i>
       </button>
     </div>
@@ -36,13 +36,22 @@
       <nav class="nav flex-column">
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.index') }}"><i class="bi bi-house me-2"></i>Inicio</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.menu') }}"><i class="bi bi-journal-richtext me-2"></i>Menú</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a>
+        <div class="border-bottom">
+          <button class="nav-link py-3 px-3 w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#menu-frontdesk" aria-expanded="true" aria-controls="menu-frontdesk">
+            <span><i class="bi bi-display me-2"></i>Frontdesk</span>
+            <i class="bi bi-chevron-down small menu-toggle-icon"></i>
+          </button>
+          <div class="collapse show" id="menu-frontdesk">
+            <a class="nav-link py-2 px-3 ps-5 border-top" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
+            <a class="nav-link py-2 px-3 ps-5" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a>
+            <a class="nav-link py-2 px-3 ps-5 pb-3" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a>
+          </div>
+        </div>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.inventario') }}"><i class="bi bi-box-seam me-2"></i>Inventario</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.proveedores') }}"><i class="bi bi-truck me-2"></i>Proveedores</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.compras') }}"><i class="bi bi-cart-check me-2"></i>Compras</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.planilla') }}"><i class="bi bi-people me-2"></i>Planilla</a>
+        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.control_gastos') }}"><i class="bi bi-cash-stack me-2"></i>Control de gastos</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Franquiciados</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.configuracion') }}"><i class="bi bi-gear me-2"></i>Configuración</a>
       </nav>

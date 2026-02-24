@@ -2,6 +2,25 @@
 {% block title %}Inicio{% endblock %}
 {% block content %}
 <h1 class="h4 mb-4">Inicio</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-graph-up me-2"></i>Ítems más comprados por semana</h5>
+    <div class="mb-2">
+      <select id="chart-week-select" class="form-select form-select-sm" style="max-width:220px" onchange="renderChart()">
+        <option value="0">Esta semana</option>
+        <option value="1">Semana anterior</option>
+        <option value="2">Hace 2 semanas</option>
+        <option value="3">Hace 3 semanas</option>
+      </select>
+    </div>
+    <div style="height:280px; position:relative;">
+      <canvas id="chart-purchases"></canvas>
+    </div>
+    <p class="text-muted small mt-2 mb-0">Basado en órdenes recibidas o enviadas.</p>
+  </div>
+</div>
+
 <div class="row g-2 g-md-3">
   <div class="col-6 col-md-4 col-lg-3">
     <a href="{{ url_for('web.menu') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
@@ -10,16 +29,18 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-lg-3">
-    <a href="{{ url_for('web.mesas') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
-      <i class="bi bi-grid-3x3-gap fs-4 d-block mb-1"></i>
-      <span>Mesas</span>
-    </a>
-  </div>
-  <div class="col-6 col-md-4 col-lg-3">
-    <a href="{{ url_for('web.pedidos') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
-      <i class="bi bi-receipt fs-4 d-block mb-1"></i>
-      <span>Pedidos</span>
-    </a>
+    <div class="dropdown">
+      <button class="dropdown-toggle w-100 d-block p-3 rounded border bg-white text-dark text-center border-0 dashboard-frontdesk-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-height:100%;">
+        <i class="bi bi-display fs-4 d-block mb-1"></i>
+        <span>Frontdesk</span>
+        <i class="bi bi-chevron-down small ms-1"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-start">
+        <li><a class="dropdown-item" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a></li>
+      </ul>
+    </div>
   </div>
   <div class="col-6 col-md-4 col-lg-3">
     <a href="{{ url_for('web.inventario') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
@@ -34,12 +55,6 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-lg-3">
-    <a href="{{ url_for('web.clientes') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
-      <i class="bi bi-person-badge fs-4 d-block mb-1"></i>
-      <span>Clientes</span>
-    </a>
-  </div>
-  <div class="col-6 col-md-4 col-lg-3">
     <a href="{{ url_for('web.compras') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
       <i class="bi bi-cart-check fs-4 d-block mb-1"></i>
       <span>Compras</span>
@@ -51,5 +66,65 @@
       <span>Planilla</span>
     </a>
   </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('web.control_gastos') }}" class="d-block p-3 rounded border bg-white text-dark text-decoration-none text-center">
+      <i class="bi bi-cash-stack fs-4 d-block mb-1"></i>
+      <span>Control de gastos</span>
+    </a>
+  </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+var chartData = null;
+var chartInstance = null;
+
+fetch("{{ url_for('purchases.top_items_weekly') }}?weeks=4")
+  .then(r => r.json())
+  .then(data => {
+    chartData = data.weeks || [];
+    renderChart();
+  })
+  .catch(() => { document.getElementById('chart-purchases').parentElement.innerHTML = '<p class="text-muted small">No se pudo cargar el gráfico.</p>'; });
+
+function renderChart() {
+  if (!chartData || !chartData.length) return;
+  var idx = parseInt(document.getElementById('chart-week-select').value, 10) || 0;
+  var week = chartData[idx];
+  if (!week) week = chartData[0];
+  var labels = (week.items || []).map(function(i) { return i.product; });
+  var values = (week.items || []).map(function(i) { return i.quantity; });
+  if (labels.length === 0) {
+    labels = ['Sin datos'];
+    values = [0];
+  }
+  var colors = ['#0d4f4f', '#1a5f5f', '#6B4423', '#5a3820', '#2d6a6a', '#3d7a7a', '#8B5A3C', '#4a9a9a', '#0a3f3f', '#7a5240'];
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(document.getElementById('chart-purchases'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Cantidad comprada',
+        data: values,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: 'Semana ' + (week.week || '') }
+      },
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'Cantidad' } },
+        y: { title: { display: true, text: 'Producto' } }
+      }
+    }
+  });
+}
+</script>
 {% endblock %}

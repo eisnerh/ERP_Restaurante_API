@@ -9,6 +9,10 @@ from .supplier_schema import SupplierSchema
 from .client_schema import ClientSchema
 from .purchase_schema import PurchaseOrderSchema, PurchaseOrderItemSchema
 from .payroll_schema import PayrollLocationSchema, PayrollEntrySchema
+from .position_schema import PositionSchema
+from .deduction_type_schema import DeductionTypeSchema
+from .employee_schema import EmployeeSchema
+from .vacation_record_schema import VacationRecordSchema
 from .payslip_schema import PayslipSchema, PayslipLineSchema
 from .unit_schema import UnitSchema
 
@@ -28,6 +32,10 @@ __all__ = [
     "PurchaseOrderItemSchema",
     "PayrollLocationSchema",
     "PayrollEntrySchema",
+    "PositionSchema",
+    "DeductionTypeSchema",
+    "EmployeeSchema",
+    "VacationRecordSchema",
     "PayslipSchema",
     "PayslipLineSchema",
     "UnitSchema",

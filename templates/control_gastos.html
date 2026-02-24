@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Control de gastos{% endblock %}
+{% block content %}
+<h1 class="h4 mb-4">Control de gastos</h1>
+<p class="text-muted mb-4">Consulta los gastos por período de planilla: compras para inventario y planilla de personal.</p>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-calendar-range me-2"></i>Período (fecha planilla)</h5>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">Año</label>
+        <select id="period-year" class="form-select" onchange="loadPeriods()">
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Período rápido</label>
+        <select id="period-preset" class="form-select" onchange="applyPreset()">
+          <option value="">-- Seleccionar quincena --</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Desde</label>
+        <input type="date" id="period-from" class="form-control" onchange="loadSummary()">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Hasta</label>
+        <input type="date" id="period-to" class="form-control" onchange="loadSummary()">
+      </div>
+      <div class="col-md-3">
+        <button type="button" class="btn btn-primary w-100" onclick="loadSummary()"><i class="bi bi-search me-1"></i>Consultar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="summary-loading" class="text-center text-muted py-5" style="display:none;">Cargando...</div>
+<div id="summary-content" style="display:none;">
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-primary">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-cart-check me-1"></i>Compras (inventario)</h6>
+          <p class="card-text h4 mb-0" id="purchases-total">₡ 0</p>
+          <small class="text-muted" id="purchases-count">0 órdenes</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-primary">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-people me-1"></i>Planilla</h6>
+          <p class="card-text h4 mb-0" id="payroll-total">₡ 0</p>
+          <small class="text-muted" id="payroll-count">0 desgloses</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 opacity-75">Total gastos</h6>
+          <p class="card-text h4 mb-0" id="total-gastos">₡ 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a id="link-compras" href="#" class="btn btn-outline-secondary btn-sm">Ver compras</a>
+    <a id="link-planilla" href="#" class="btn btn-outline-secondary btn-sm">Ver planilla</a>
+  </div>
+</div>
+
+<div id="summary-empty" class="text-center text-muted py-5">
+  <p class="mb-0">Selecciona un período y haz clic en Consultar.</p>
+</div>
+
+<script>
+var API_SUMMARY = "{{ url_for('expenses.expenses_summary') }}";
+var API_PERIODS = "{{ url_for('expenses.list_periods') }}";
+
+function applyPreset() {
+  var sel = document.getElementById('period-preset');
+  var val = sel.value;
+  if (!val) return;
+  var p = JSON.parse(val);
+  document.getElementById('period-from').value = p.from;
+  document.getElementById('period-to').value = p.to;
+  loadSummary();
+}
+
+function loadSummary() {
+  var from = document.getElementById('period-from').value;
+  var to = document.getElementById('period-to').value;
+  if (!from || !to) {
+    document.getElementById('summary-empty').style.display = 'block';
+    document.getElementById('summary-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('summary-loading').style.display = 'block';
+  document.getElementById('summary-content').style.display = 'none';
+  document.getElementById('summary-empty').style.display = 'none';
+  fetch(API_SUMMARY + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to))
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('summary-loading').style.display = 'none';
+      document.getElementById('summary-content').style.display = 'block';
+      var pt = data.purchases_total != null ? data.purchases_total : 0;
+      var pl = data.payroll_total != null ? data.payroll_total : 0;
+      var tot = data.total != null ? data.total : pt + pl;
+      document.getElementById('purchases-total').textContent = '₡ ' + pt.toLocaleString('es-CR', {minimumFractionDigits: 2});
+      document.getElementById('payroll-total').textContent = '₡ ' + pl.toLocaleString('es-CR', {minimumFractionDigits: 2});
+      document.getElementById('total-gastos').textContent = '₡ ' + tot.toLocaleString('es-CR', {minimumFractionDigits: 2});
+      document.getElementById('purchases-count').textContent = (data.purchases_count || 0) + ' orden(es)';
+      document.getElementById('payroll-count').textContent = (data.payroll_count || 0) + ' desglose(s)';
+      document.getElementById('link-compras').href = "{{ url_for('web.compras') }}";
+      document.getElementById('link-planilla').href = "{{ url_for('web.planilla') }}";
+    })
+    .catch(() => {
+      document.getElementById('summary-loading').style.display = 'none';
+      document.getElementById('summary-empty').style.display = 'block';
+      document.getElementById('summary-empty').innerHTML = '<p class="text-danger mb-0">Error al cargar. Intenta de nuevo.</p>';
+    });
+}
+
+function loadPeriods() {
+  var year = document.getElementById('period-year').value || new Date().getFullYear();
+  fetch(API_PERIODS + '?year=' + year)
+    .then(r => r.json())
+    .then(data => {
+      var sel = document.getElementById('period-preset');
+      sel.innerHTML = '<option value="">-- Seleccionar quincena --</option>';
+      (data.periods || []).forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = JSON.stringify({ from: p.from, to: p.to });
+        opt.textContent = p.label;
+        sel.appendChild(opt);
+      });
+      var today = new Date();
+      var from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+      var to = today.toISOString().slice(0, 10);
+      document.getElementById('period-from').value = from;
+      document.getElementById('period-to').value = to;
+      loadSummary();
+    })
+    .catch(function() {});
+}
+var currentYear = new Date().getFullYear();
+for (var y = currentYear + 1; y >= currentYear - 2; y--) {
+  var opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  if (y === currentYear) opt.selected = true;
+  document.getElementById('period-year').appendChild(opt);
+}
+loadPeriods();
+</script>
+{% endblock %}

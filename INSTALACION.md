@@ -165,7 +165,33 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Verificar conexión | `python scripts/connect_db.py` |
 | Ejecutar app | `python app.py` |
 | Importar inventario | `python scripts/import_inventory_excel.py --franchisee-id 1` |
+| Añadir columna purchase_price (BD existente) | `python scripts/migrate_add_purchase_price.py` |
+| Tabla empleados y vínculo desgloses (BD existente) | `python scripts/migrate_add_employees.py` |
+| Puestos, tipos deducción (BD existente) | `python scripts/migrate_add_positions_deductions.py` |
+| Campos HR empleados (cédula, salario, vacaciones) | `python scripts/migrate_hr_employee_fields.py` |
 | Datos de menú (opcional) | `python seed.py` |
+
+---
+
+## Crear ejecutable (.exe)
+
+Para generar un ejecutable que no requiere Python instalado:
+
+```powershell
+python build_exe.py
+```
+
+O doble clic en `build.bat`.
+
+El archivo `dist/ERP_Restaurant.exe` se creará. Para usarlo:
+
+1. Copia la carpeta `dist` (o solo el .exe) al equipo destino
+2. Copia `.env` o `.env.example` junto al ejecutable y renómbralo a `.env`
+3. Configura PostgreSQL en el `.env`
+4. Ejecuta `ERP_Restaurant.exe`
+5. Abre http://localhost:5000 en el navegador
+
+**Nota:** PostgreSQL debe estar instalado y corriendo en el equipo. El ejecutable solo incluye la aplicación web, no la base de datos.
 
 ---
 
@@ -178,6 +204,7 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Error de conexión a PostgreSQL | Verifica que PostgreSQL esté corriendo. Revisa usuario y contraseña en `.env` |
 | Puerto 5000 en uso | Edita `app.py` y cambia `port=5000` por `port=5001` |
 | No se ven los datos | Ejecuta `python scripts/import_inventory_excel.py --franchisee-id 1` para cargar inventario |
+| Error "no existe la columna purchase_price" | Ejecuta: `python scripts/migrate_add_purchase_price.py` |
 
 ---
 

@@ -8,9 +8,11 @@ class PayrollEntry(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     location_id = db.Column(db.Integer, db.ForeignKey("payroll_locations.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=True)  # Empleado vinculado
+    position_id = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)  # Puesto/cargo
     period_date = db.Column(db.Date, nullable=True)  # Fecha de la planilla / periodo (rebajos y pagos)
-    employee_name = db.Column(db.String(120), nullable=False)
-    entry_type = db.Column(db.String(20), default="employee")  # employee | mermas | other
+    employee_name = db.Column(db.String(120), nullable=False)  # Se mantiene para import/display
+    entry_type = db.Column(db.String(30), default="empleado")  # empleado|administrador|administrativo|inventario|custom|mermas (legacy)
     code = db.Column(db.String(40))
     hrs_extra = db.Column(db.Float)           # HRS EXTRAS: positivas o negativas
     creditos_comida = db.Column(db.Float, default=0)  # Créditos comida (suelen ser negativos)
@@ -21,6 +23,9 @@ class PayrollEntry(db.Model):
     numero_cuenta = db.Column(db.String(120))
     fecha_ingreso = db.Column(db.Date)        # Fecha de ingreso del empleado
     notes = db.Column(db.String(300))
+
+    employee = db.relationship("Employee", backref="payroll_entries")
+    position = db.relationship("Position", backref="payroll_entries")
 
     def __repr__(self):
         return f"<PayrollEntry {self.employee_name} @ {self.location_id}>"

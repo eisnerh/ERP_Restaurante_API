@@ -5,8 +5,8 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, Response, send_file
 from datetime import date as date_type
 from extensions import db
-from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine
-from schemas import PayrollLocationSchema, PayrollEntrySchema, PayslipSchema
+from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine, Employee, Position, DeductionType, VacationRecord
+from schemas import PayrollLocationSchema, PayrollEntrySchema, PayslipSchema, EmployeeSchema, PositionSchema, DeductionTypeSchema, VacationRecordSchema
 from utils.franchisee import get_or_default_franchisee_id
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/api/payroll")
@@ -15,6 +15,14 @@ location_schema = PayrollLocationSchema()
 locations_schema = PayrollLocationSchema(many=True)
 entry_schema = PayrollEntrySchema()
 entries_schema = PayrollEntrySchema(many=True)
+employee_schema = EmployeeSchema()
+employees_schema = EmployeeSchema(many=True)
+position_schema = PositionSchema()
+positions_schema = PositionSchema(many=True)
+deduction_type_schema = DeductionTypeSchema()
+deduction_types_schema = DeductionTypeSchema(many=True)
+vacation_record_schema = VacationRecordSchema()
+vacation_records_schema = VacationRecordSchema(many=True)
 payslip_schema = PayslipSchema()
 payslips_schema = PayslipSchema(many=True)
 
@@ -195,7 +203,7 @@ def _parse_payroll_excel(path):
             if name_b.upper() in ("MERMAS", "MERMA"):
                 entry_type = "mermas"
             else:
-                entry_type = "employee"
+                entry_type = "empleado"
             hrs = _to_float(row[2] if len(row) > 2 else None)
             creditos = _to_float(row[3] if len(row) > 3 else None, 0)
             vale = _to_float(row[4] if len(row) > 4 else None)
@@ -275,17 +283,195 @@ def location_detail(loc_id):
     return "", 204
 
 
-# ---------- Entries ----------
 def _parse_date_param(s):
     """Convierte 'YYYY-MM-DD' a date o None."""
     if not s:
         return None
     try:
-        return datetime.strptime(s.strip()[:10], "%Y-%m-%d").date()
-    except ValueError:
+        return datetime.strptime(str(s).strip()[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
         return None
 
 
+# ---------- Employees ----------
+@payroll_bp.route("/employees", methods=["GET"])
+def list_employees():
+    """Lista empleados del franquiciado actual."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    location_id = request.args.get("location_id", type=int)
+    active_only = request.args.get("active", "1").lower() in ("1", "true", "yes")
+    query = Employee.query.filter_by(franchisee_id=fid)
+    if active_only:
+        query = query.filter_by(active=True)
+    if location_id is not None:
+        query = query.filter_by(location_id=location_id)
+    employees = query.order_by(Employee.name).all()
+    return jsonify(employees_schema.dump(employees))
+
+
+@payroll_bp.route("/employees", methods=["POST"])
+def create_employee():
+    """Crea un empleado del franquiciado."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    if data.get("location_id"):
+        loc = PayrollLocation.query.filter_by(id=data["location_id"], franchisee_id=fid).first()
+        if not loc:
+            return jsonify({"error": "Ubicación no encontrada"}), 400
+    data["franchisee_id"] = fid
+    for f in ("fecha_ingreso", "fecha_salida"):
+        if f in data and data[f]:
+            data[f] = _parse_date_param(data[f])
+    emp = employee_schema.load(data, session=db.session)
+    db.session.add(emp)
+    db.session.commit()
+    return jsonify(employee_schema.dump(emp)), 201
+
+
+@payroll_bp.route("/employees/<int:emp_id>", methods=["GET", "PUT", "DELETE"])
+def employee_detail(emp_id):
+    fid = get_or_default_franchisee_id()
+    emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if fid else None
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 404
+    if request.method == "GET":
+        return jsonify(employee_schema.dump(emp))
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        for f in ("fecha_ingreso", "fecha_salida"):
+            if f in data:
+                data[f] = _parse_date_param(data[f]) if data[f] else None
+        employee_schema.load(data, instance=emp, session=db.session, partial=True)
+        db.session.commit()
+        return jsonify(employee_schema.dump(emp))
+    db.session.delete(emp)
+    db.session.commit()
+    return "", 204
+
+
+@payroll_bp.route("/employees/<int:emp_id>/vacation-records", methods=["GET", "POST"])
+def employee_vacation_records(emp_id):
+    """Lista o registra vacaciones tomadas. POST: {fecha_desde, fecha_hasta, dias_tomados, tipo, notes}."""
+    fid = get_or_default_franchisee_id()
+    emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if fid else None
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 404
+    if request.method == "GET":
+        records = VacationRecord.query.filter_by(employee_id=emp_id).order_by(VacationRecord.fecha_desde.desc()).all()
+        return jsonify(vacation_records_schema.dump(records))
+    data = request.get_json() or {}
+    data["employee_id"] = emp_id
+    for f in ("fecha_desde", "fecha_hasta"):
+        if f in data and data[f]:
+            data[f] = _parse_date_param(data[f])
+    rec = vacation_record_schema.load(data, session=db.session)
+    db.session.add(rec)
+    emp.vacaciones_dias_tomados = (emp.vacaciones_dias_tomados or 0) + (rec.dias_tomados or 0)
+    db.session.commit()
+    return jsonify(vacation_record_schema.dump(rec)), 201
+
+
+# ---------- Positions (Puestos) ----------
+@payroll_bp.route("/positions", methods=["GET"])
+def list_positions():
+    """Lista puestos del franquiciado. Tipos: empleado, administrador, administrativo, inventario, custom."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    position_type = request.args.get("type")  # Filtrar por tipo
+    query = Position.query.filter_by(franchisee_id=fid)
+    if position_type in ("empleado", "administrador", "administrativo", "inventario", "custom"):
+        query = query.filter_by(position_type=position_type)
+    positions = query.order_by(Position.display_order, Position.name).all()
+    return jsonify(positions_schema.dump(positions))
+
+
+@payroll_bp.route("/positions", methods=["POST"])
+def create_position():
+    """Crea un puesto. position_type: empleado|administrador|administrativo|inventario|custom."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    data["franchisee_id"] = fid
+    if not data.get("position_type"):
+        data["position_type"] = "empleado"
+    if data["position_type"] not in ("empleado", "administrador", "administrativo", "inventario", "custom"):
+        data["position_type"] = "custom"
+    pos = position_schema.load(data, session=db.session)
+    db.session.add(pos)
+    db.session.commit()
+    return jsonify(position_schema.dump(pos)), 201
+
+
+@payroll_bp.route("/positions/<int:pos_id>", methods=["GET", "PUT", "DELETE"])
+def position_detail(pos_id):
+    fid = get_or_default_franchisee_id()
+    pos = Position.query.filter_by(id=pos_id, franchisee_id=fid).first() if fid else None
+    if not pos:
+        return jsonify({"error": "Puesto no encontrado"}), 404
+    if request.method == "GET":
+        return jsonify(position_schema.dump(pos))
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        if data.get("position_type") and data["position_type"] not in ("empleado", "administrador", "administrativo", "inventario", "custom"):
+            data["position_type"] = "custom"
+        position_schema.load(data, instance=pos, session=db.session, partial=True)
+        db.session.commit()
+        return jsonify(position_schema.dump(pos))
+    db.session.delete(pos)
+    db.session.commit()
+    return "", 204
+
+
+# ---------- Deduction Types (Tipos de deducción) ----------
+@payroll_bp.route("/deduction-types", methods=["GET"])
+def list_deduction_types():
+    """Lista tipos de deducción. can_be_negative permite valores negativos (ej. horas negociables)."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    types = DeductionType.query.filter_by(franchisee_id=fid).order_by(DeductionType.display_order, DeductionType.name).all()
+    return jsonify(deduction_types_schema.dump(types))
+
+
+@payroll_bp.route("/deduction-types", methods=["POST"])
+def create_deduction_type():
+    """Crea tipo de deducción. can_be_negative: si True, amount/quantity pueden ser negativos."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    data["franchisee_id"] = fid
+    dt = deduction_type_schema.load(data, session=db.session)
+    db.session.add(dt)
+    db.session.commit()
+    return jsonify(deduction_type_schema.dump(dt)), 201
+
+
+@payroll_bp.route("/deduction-types/<int:dt_id>", methods=["GET", "PUT", "DELETE"])
+def deduction_type_detail(dt_id):
+    fid = get_or_default_franchisee_id()
+    dt = DeductionType.query.filter_by(id=dt_id, franchisee_id=fid).first() if fid else None
+    if not dt:
+        return jsonify({"error": "Tipo de deducción no encontrado"}), 404
+    if request.method == "GET":
+        return jsonify(deduction_type_schema.dump(dt))
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        deduction_type_schema.load(data, instance=dt, session=db.session, partial=True)
+        db.session.commit()
+        return jsonify(deduction_type_schema.dump(dt))
+    db.session.delete(dt)
+    db.session.commit()
+    return "", 204
+
+
+# ---------- Entries ----------
 @payroll_bp.route("/entries", methods=["GET"])
 def list_entries():
     """
@@ -309,7 +495,8 @@ def list_entries():
             query = query.filter_by(location_id=location_id)
         else:
             query = query.filter(False)
-    if entry_type in ("employee", "mermas", "other"):
+    valid_types = ("empleado", "administrador", "administrativo", "inventario", "custom", "mermas", "other", "employee")
+    if entry_type in valid_types:
         query = query.filter_by(entry_type=entry_type)
     if period_date is not None:
         query = query.filter(PayrollEntry.period_date == period_date)
@@ -324,7 +511,7 @@ def list_entries():
 @payroll_bp.route("/entries/<int:entry_id>", methods=["GET", "PUT", "DELETE"])
 def entry_detail(entry_id):
     fid = get_or_default_franchisee_id()
-    entry = PayrollEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(PayrollEntry, entry_id)
     if fid:
         loc = PayrollLocation.query.filter_by(id=entry.location_id, franchisee_id=fid).first()
         if not loc:
@@ -333,6 +520,16 @@ def entry_detail(entry_id):
         return jsonify(entry_schema.dump(entry))
     if request.method == "PUT":
         data = request.get_json() or {}
+        if "period_date" in data:
+            data["period_date"] = _parse_date_param(data["period_date"]) if data["period_date"] else None
+        if data.get("employee_id"):
+            emp = Employee.query.filter_by(id=data["employee_id"], franchisee_id=fid).first()
+            if not emp:
+                data.pop("employee_id", None)
+        if data.get("position_id"):
+            pos = Position.query.filter_by(id=data["position_id"], franchisee_id=fid).first()
+            if not pos:
+                data.pop("position_id", None)
         entry_schema.load(data, instance=entry, session=db.session, partial=True)
         db.session.commit()
         return jsonify(entry_schema.dump(entry))
@@ -352,9 +549,16 @@ def create_entry():
         loc = PayrollLocation.query.filter_by(id=data["location_id"], franchisee_id=fid).first()
         if not loc:
             return jsonify({"error": "Ubicación no encontrada o no pertenece al franquiciado"}), 400
-    if data.get("period_date"):
-        if isinstance(data["period_date"], str):
-            data["period_date"] = _parse_date_param(data["period_date"])
+    if "period_date" in data:
+        data["period_date"] = _parse_date_param(data["period_date"]) if data["period_date"] else None
+    if data.get("employee_id"):
+        emp = Employee.query.filter_by(id=data["employee_id"], franchisee_id=fid).first()
+        if not emp:
+            data.pop("employee_id", None)
+    if data.get("position_id"):
+        pos = Position.query.filter_by(id=data["position_id"], franchisee_id=fid).first()
+        if not pos:
+            data.pop("position_id", None)
     entry = entry_schema.load(data, session=db.session)
     db.session.add(entry)
     db.session.commit()
@@ -575,6 +779,32 @@ def payslips_summary_pdf():
     )
 
 
+@payroll_bp.route("/payslips/periods", methods=["GET"])
+def list_payslip_periods():
+    """Lista períodos únicos (ubicación, inicio, fin) para el resumen PDF."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"periods": []})
+    rows = db.session.query(
+        Payslip.location_name,
+        Payslip.period_start,
+        Payslip.period_end,
+    ).filter_by(franchisee_id=fid).distinct().order_by(
+        Payslip.period_start.desc(),
+        Payslip.location_name,
+    ).limit(50).all()
+    return jsonify({
+        "periods": [
+            {
+                "location_name": r[0],
+                "period_start": r[1].isoformat() if r[1] else None,
+                "period_end": r[2].isoformat() if r[2] else None,
+            }
+            for r in rows
+        ],
+    })
+
+
 @payroll_bp.route("/payslips", methods=["GET"])
 def list_payslips():
     """
@@ -653,6 +883,8 @@ def import_payslip_excel():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     skip_sheets = ("RESUMEN DE PLANILLA", "RESUMEN")
+    emp_by_name = {e.name.strip().upper(): e for e in Employee.query.filter_by(franchisee_id=fid, active=True).all() if (e.name or "").strip()}
+    pos_by_name = {p.name.strip().upper(): p for p in Position.query.filter_by(franchisee_id=fid).all() if (p.name or "").strip()}
     created = 0
     for sheet_name in wb.sheetnames:
         if any(skip in sheet_name.upper() for skip in skip_sheets):
@@ -668,8 +900,14 @@ def import_payslip_excel():
                 Payslip.employee_name == parsed["employee_name"],
                 Payslip.period_start == parsed["period_start"],
             ).delete(synchronize_session=False)
+        emp_name = (parsed.get("employee_name") or "").strip()
+        emp = emp_by_name.get(emp_name.upper()) if emp_name else None
+        pos_name = (parsed.get("position") or "").strip()
+        pos = pos_by_name.get(pos_name.upper()) if pos_name else None
         ps = Payslip(
             franchisee_id=fid,
+            employee_id=emp.id if emp else None,
+            position_id=pos.id if pos else None,
             location_name=parsed["location_name"],
             employee_name=parsed["employee_name"],
             position=parsed.get("position"),

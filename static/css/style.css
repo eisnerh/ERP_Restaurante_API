@@ -1,17 +1,37 @@
-/* ERP - Interfaz limpia */
-body { background: #f8f9fa; }
-
-.navbar .nav-link { color: #495057 !important; }
-.navbar .nav-link:hover { color: #0d6efd !important; }
-
-/* Menú hamburguesa - offcanvas (fondo sólido, no transparente) */
-#menuOffcanvas.offcanvas {
-  background-color: #fff !important;
-  box-shadow: -4px 0 16px rgba(0,0,0,0.15);
+/* ERP Raul Castaño - "Mi equipo en el 2026 te acompaña con una taza de café que impulsa" */
+:root {
+  --rc-primary: #0d4f4f;     /* Verde azulado oscuro (teal) - fondo del círculo */
+  --rc-primary-light: #1a5f5f;
+  --rc-accent: #6B4423;       /* Marrón café (grano de café) */
+  --rc-accent-hover: #5a3820;
+  --rc-bg: #f0f5f5;          /* Fondo claro con tinte teal */
+  --rc-bg-card: #ffffff;     /* Blanco */
+  --rc-text: #0d4f4f;        /* Texto principal - teal */
+  --rc-text-muted: #2d6a6a;
+  --rc-border: #c5d9d9;
 }
-.offcanvas-backdrop { background-color: rgba(0,0,0,0.5); }
-.offcanvas .nav-link { color: #212529; }
-.offcanvas .nav-link:hover { background: #f8f9fa; color: #0d6efd; }
+
+body { background: var(--rc-bg); color: var(--rc-text); }
+
+.navbar {
+  background-color: var(--rc-primary) !important;
+  border-bottom-color: var(--rc-primary-light) !important;
+}
+.navbar .nav-link { color: rgba(255,255,255,0.9) !important; }
+.navbar .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
+.navbar-brand span { color: #fff !important; }
+.navbar .btn-link { color: #fff !important; }
+
+/* Menú hamburguesa - offcanvas */
+#menuOffcanvas.offcanvas {
+  background-color: var(--rc-bg-card) !important;
+  box-shadow: -4px 0 16px rgba(13,79,79,0.12);
+}
+.offcanvas-backdrop { background-color: rgba(13,79,79,0.35); }
+.offcanvas .nav-link { color: var(--rc-text); }
+.offcanvas .nav-link:hover { background: var(--rc-bg); color: var(--rc-primary); }
+.offcanvas .menu-toggle-icon { transition: transform 0.2s; }
+.offcanvas button[aria-expanded="false"] .menu-toggle-icon { transform: rotate(-90deg); }
 
 .msg.alert { display: block; }
 
@@ -28,7 +48,46 @@ body { background: #f8f9fa; }
 }
 .modal-overlay.show { display: flex !important; }
 .modal-overlay .modal-dialog { margin: auto; max-width: 540px; width: 100%; }
-.modal-overlay .modal-content { border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+.modal-overlay .modal-content {
+  background-color: var(--rc-bg-card) !important;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(13,79,79,0.15);
+  border: 1px solid var(--rc-border);
+}
+.modal-overlay .modal-header,
+.modal-overlay .modal-body,
+.modal-overlay .modal-footer {
+  background-color: var(--rc-bg-card) !important;
+  border-color: var(--rc-border);
+}
+.modal-overlay .modal-header { border-bottom-color: var(--rc-border); }
+.modal-overlay .modal-footer { border-top-color: var(--rc-border); }
+
+/* Botones primarios - acento Raul Castaño */
+.btn-primary { background-color: var(--rc-accent) !important; border-color: var(--rc-accent) !important; }
+.btn-primary:hover { background-color: var(--rc-accent-hover) !important; border-color: var(--rc-accent-hover) !important; }
+.btn-outline-primary { color: var(--rc-accent) !important; border-color: var(--rc-accent) !important; }
+.btn-outline-primary:hover { background-color: var(--rc-accent) !important; color: #fff !important; }
+
+/* Cards */
+.card { background-color: var(--rc-bg-card); border-color: var(--rc-border); }
+
+/* Formularios - fondo sólido (evitar transparencia) */
+.form-control,
+.form-select,
+textarea.form-control {
+  background-color: var(--rc-bg-card) !important;
+  border-color: var(--rc-border);
+}
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--rc-bg-card) !important;
+}
+
+/* Enlaces y texto */
+a:not(.nav-link):not(.btn) { color: var(--rc-accent); }
+a:not(.nav-link):not(.btn):hover { color: var(--rc-accent-hover); }
+.text-muted { color: var(--rc-text-muted) !important; }
 
 /* Mesas */
 .mesas-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
@@ -45,22 +104,59 @@ body { background: #f8f9fa; }
 .mesa-card .mesa-num { font-weight: 600; }
 .mesa-card .mesa-capacity { font-size: 0.8rem; opacity: 0.85; }
 
-/* Inventario - fila stock bajo */
-.inv-row-low { background-color: #f8d7da !important; }
+/* Inventario - fila stock bajo (alerta: stock=0, existencia=0 o <10%) */
+.inv-row-low {
+  background-color: #f8d7da !important;
+  border-left: 4px solid #dc3545 !important;
+}
+
+/* Inventario - filas editables con doble clic */
+.inv-row-editable { cursor: pointer; }
+.inv-row-editable:hover { background-color: var(--rc-bg) !important; }
 
 /* Inventario agrupado por proveedor */
-.inv-group { margin-bottom: 0.5rem; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+.inv-group { margin-bottom: 0.5rem; border: 1px solid var(--rc-border); border-radius: 6px; overflow: hidden; }
 .inv-group-header {
   padding: 0.5rem 0.75rem;
-  background: #f8f9fa;
+  background: var(--rc-bg);
   cursor: pointer;
   font-weight: 500;
   font-size: 0.9rem;
 }
-.inv-group-header:hover { background: #e9ecef; }
+.inv-group-header:hover { background: var(--rc-bg); }
 .inv-group-toggle { display: inline-block; width: 1.2em; text-align: center; }
 .inv-group-body .table { margin: 0; }
 .inv-group.collapsed .inv-group-body { display: none; }
 
+/* Alertas - grupos por proveedor (caja roja) */
+.inv-group-alert {
+  margin-bottom: 0.5rem;
+  border: 2px solid #dc3545;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--rc-bg-card);
+}
+.inv-group-alert .alert-group-header {
+  padding: 0.5rem 0.75rem;
+  background-color: #dc3545;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.inv-group-alert .alert-group-header:hover {
+  background-color: #bb2d3b;
+}
+.inv-group-alert .alert-group-toggle { display: inline-block; width: 1.2em; text-align: center; }
+.inv-group-alert.collapsed .alert-group-body { display: none; }
+
 /* Cards de sección */
 .section-card .card-title { font-size: 0.95rem; font-weight: 600; }
+
+/* Dashboard - botón Frontdesk (dropdown) */
+.dashboard-frontdesk-btn:hover { background-color: var(--rc-bg) !important; }
+
+/* Planilla - tabs */
+#planilla-tabs .nav-link { color: var(--rc-text); }
+#planilla-tabs .nav-link:hover { color: var(--rc-primary); }
+#planilla-tabs .nav-link.active { color: var(--rc-primary); font-weight: 600; border-bottom-color: var(--rc-primary); }

@@ -7,8 +7,9 @@
   <div class="card-body">
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
       <button type="button" class="btn btn-sm btn-primary" onclick="openInvForm()">Nuevo ítem</button>
+      <span class="text-muted small">Doble clic en una fila para editar</span>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="importExcel()">Importar Excel</button>
-      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv" class="btn btn-sm btn-outline-secondary">Reporte CSV</a>
+      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-secondary">Exportar pedidos CSV</a>
     </div>
     <div class="d-flex flex-wrap gap-2 mb-2">
       <select id="filter-area" class="form-select form-select-sm" style="max-width:120px" onchange="loadInv()">
@@ -42,6 +43,19 @@
 <div class="card">
   <div class="card-body">
     <h5 class="card-title mb-2">Alertas</h5>
+    <p class="text-muted small mb-2">Items con stock &lt; 10% o cero (resaltados en rojo en la tabla)</p>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-danger">Exportar lista completa (CSV)</a>
+      <span class="text-muted small">o por proveedor:</span>
+      <select id="export-by-supplier" class="form-select form-select-sm" style="max-width:220px" onchange="exportBySupplier(this.value)">
+        <option value="">-- Seleccionar proveedor --</option>
+      </select>
+    </div>
+    <div id="low-stock-now" class="mb-3">
+      <div id="low-stock-loading" class="text-center text-muted py-2">Cargando items con stock bajo...</div>
+      <div id="low-stock-content" style="display:none;"></div>
+    </div>
+    <h6 class="mb-2">Historial de alertas</h6>
     <div id="alerts-loading" class="text-center text-muted py-4">Cargando...</div>
     <div id="alerts-content" style="display:none;"></div>
   </div>
@@ -111,6 +125,10 @@
             <input type="number" id="inv-order-quantity" class="form-control" step="0.01" placeholder="Opcional">
           </div>
           <div class="mb-3">
+            <label class="form-label">Precio de compra (último)</label>
+            <input type="number" id="inv-purchase-price" class="form-control" step="0.01" placeholder="Opcional" value="">
+          </div>
+          <div class="mb-3">
             <label class="form-label">Proveedores (puede elegir varios)</label>
             <div id="inv-suppliers-checkboxes" class="border rounded p-2" style="max-height:160px; overflow-y:auto;"></div>
             <input type="text" id="inv-supplier" class="form-control mt-2" placeholder="Otro proveedor (varios separados por /)" title="Varios nombres separados por /">
@@ -138,9 +156,11 @@
 var API_INV = "{{ url_for('inventory.list_inventory') }}";
 var API_INV_SUPPLIERS = "{{ url_for('inventory.list_suppliers') }}";
 var API_INV_UNITS = "{{ url_for('inventory.list_units') }}";
+var API_INV_REPORT = "{{ url_for('inventory.report_low_stock') }}";
 const msg = document.getElementById('msg');
 var suppliersList = [];
 var unitsList = [];
+var lastEditedSupplierKey = null;  // Para mantener el proveedor expandido tras editar
 
 function fillUnitSelect(selectedSymbol) {
   var sel = document.getElementById('inv-unit');
@@ -263,24 +283,28 @@ function loadInv() {
       suppliers.forEach((sup, idx) => {
         const items = bySupplier[sup];
         const id = 'inv-group-' + idx;
-        const collapsed = idx > 0 ? ' collapsed' : '';
+        const shouldExpand = lastEditedSupplierKey ? (sup === lastEditedSupplierKey) : (idx === 0);
+        const collapsed = shouldExpand ? '' : ' collapsed';
         html += '<div class="inv-group' + collapsed + '" id="' + id + '">';
-        html += '<div class="inv-group-header" onclick="toggleInvGroup(\'' + id + '\')"><span class="inv-group-toggle">' + (idx > 0 ? '+' : '−') + '</span><span>' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + '</span> <span style="opacity:0.85; font-weight:normal;">(' + items.length + ')</span></div>';
+        html += '<div class="inv-group-header" onclick="toggleInvGroup(\'' + id + '\')"><span class="inv-group-toggle">' + (shouldExpand ? '−' : '+') + '</span><span>' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + '</span> <span style="opacity:0.85; font-weight:normal;">(' + items.length + ')</span></div>';
         html += '<div class="inv-group-body"><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>ID</th><th>Código</th><th>Área</th><th>Producto</th><th>Unidad</th><th>Existencia</th><th>Stock</th><th>Responsable</th><th class="text-end">Acciones</th></tr></thead><tbody>';
         items.forEach(i => {
           var stock = i.stock != null ? parseFloat(i.stock) : 0;
           var existence = i.existence != null ? parseFloat(i.existence) : 0;
-          var lowClass = (stock > 0 && existence < stock * 0.1) ? ' inv-row-low' : '';
-          html += '<tr class="' + lowClass + '"><td>' + i.id + '</td><td>' + (i.code || '') + '</td><td>' + (i.area || '') + '</td><td>' + (i.product_name || '') + '</td><td>' + (i.unit || 'UND') + '</td><td>' + (i.existence != null ? i.existence : '-') + '</td><td>' + (i.stock != null ? i.stock : '-') + '</td><td>' + (i.responsible || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editInv(' + i.id + ')">Editar</button></td></tr>';
+          var isLow = stock === 0 || existence === 0 || (stock > 0 && existence < stock * 0.1);
+          var lowClass = isLow ? ' inv-row-low' : '';
+          html += '<tr class="inv-row-editable' + lowClass + '" ondblclick="editInv(' + i.id + ')" title="Doble clic para editar"><td>' + i.id + '</td><td>' + (i.code || '') + '</td><td>' + (i.area || '') + '</td><td>' + (i.product_name || '') + '</td><td>' + (i.unit || 'UND') + '</td><td>' + (i.existence != null ? i.existence : '-') + '</td><td>' + (i.stock != null ? i.stock : '-') + '</td><td>' + (i.responsible || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); editInv(' + i.id + ')">Editar</button></td></tr>';
         });
         html += '</tbody></table></div></div></div>';
       });
       document.getElementById('inv-content').innerHTML = html;
+      lastEditedSupplierKey = null;
     })
     .catch(e => { document.getElementById('inv-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
 }
 function openInvForm() {
   document.getElementById('inv-modal-footer-delete').style.display = 'none';
+  lastEditedSupplierKey = null;
   apiGet(API_INV_SUPPLIERS).then(function(data) {
     suppliersList = data || [];
     fillSupplierCheckboxes([]);
@@ -292,6 +316,7 @@ function openInvForm() {
     document.getElementById('inv-existence').value = '0';
     document.getElementById('inv-stock').value = '0';
     document.getElementById('inv-order-quantity').value = '';
+    document.getElementById('inv-purchase-price').value = '';
     document.getElementById('inv-supplier').value = '';
     document.getElementById('inv-responsible').value = '';
     return apiGet(API_INV + '/next-code?area=salon');
@@ -318,6 +343,8 @@ function editInv(id) {
     suppliersList = data || [];
     return apiGet(API_INV + '/' + id);
   }).then(function(i) {
+    var names = i.supplier_names && i.supplier_names.length ? i.supplier_names : (i.supplier && i.supplier.trim() ? [i.supplier.trim()] : []);
+    lastEditedSupplierKey = names.length ? names.join(', ') : 'Sin proveedor';
     fillSupplierCheckboxes(i.supplier_ids || []);
     document.getElementById('modal-inv-title').textContent = 'Editar ítem';
     document.getElementById('inv-id').value = i.id;
@@ -328,6 +355,7 @@ function editInv(id) {
     document.getElementById('inv-existence').value = i.existence != null ? i.existence : '0';
     document.getElementById('inv-stock').value = i.stock != null ? i.stock : '0';
     document.getElementById('inv-order-quantity').value = i.order_quantity != null ? i.order_quantity : '';
+    document.getElementById('inv-purchase-price').value = i.purchase_price != null ? i.purchase_price : '';
     document.getElementById('inv-supplier').value = i.supplier || '';
     document.getElementById('inv-responsible').value = i.responsible || '';
     modalShow('modal-inv');
@@ -355,10 +383,18 @@ function saveInv(e) {
     existence: parseFloat(document.getElementById('inv-existence').value) || 0,
     stock: parseFloat(document.getElementById('inv-stock').value) || 0,
     order_quantity: document.getElementById('inv-order-quantity').value ? parseFloat(document.getElementById('inv-order-quantity').value) : null,
+    purchase_price: document.getElementById('inv-purchase-price').value ? parseFloat(document.getElementById('inv-purchase-price').value) : null,
     supplier: otherText.trim() || null,
     responsible: (document.getElementById('inv-responsible') && document.getElementById('inv-responsible').value.trim()) || null,
     supplier_ids: getInvSupplierIds()
   };
+  if (!id && getInvSupplierIds().length) {
+    var names = getInvSupplierIds().map(function(sid) {
+      var s = (suppliersList || []).find(function(x) { return x.id === sid; });
+      return s ? s.name : '';
+    }).filter(Boolean);
+    lastEditedSupplierKey = names.length ? names.join(', ') : null;
+  }
   const p = id ? apiPut(API_INV + '/' + id, data) : apiPost(API_INV, data);
   p.then(() => { modalHide('modal-inv'); showMsg(msg, 'Guardado.', 'success'); loadInv(); })
     .catch(err => showMsg(msg, err.message, 'error'));
@@ -392,6 +428,81 @@ function importExcel() {
     .then(j => { showMsg(msg, 'Base de datos restaurada desde Excel: ' + (j.imported || 0) + ' ítems importados.', 'success'); loadInv(); })
     .catch(err => showMsg(msg, err.message || 'Error al importar', 'error'));
 }
+
+function exportBySupplier(supplierName) {
+  var sel = document.getElementById('export-by-supplier');
+  if (!supplierName) { if (sel) sel.selectedIndex = 0; return; }
+  var url = API_INV_REPORT + '?format=csv&threshold=0.1&supplier=' + encodeURIComponent(supplierName);
+  window.location.href = url;
+  if (sel) setTimeout(function() { sel.selectedIndex = 0; }, 500);
+}
+// Cargar items con stock bajo (actual) - agrupados por proveedor
+function toggleAlertGroup(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('collapsed');
+  var toggleSpan = el.querySelector('.alert-group-toggle');
+  if (toggleSpan) {
+    var isCollapsed = el.classList.contains('collapsed');
+    toggleSpan.textContent = isCollapsed ? '+' : '−';
+  }
+}
+apiGet(API_INV + '/report?threshold=0.1').then(data => {
+  document.getElementById('low-stock-loading').style.display = 'none';
+  document.getElementById('low-stock-content').style.display = 'block';
+  const items = (data && data.items) || [];
+  if (items.length === 0) {
+    document.getElementById('low-stock-content').innerHTML = '<p class="text-success mb-0">No hay items con stock bajo.</p>';
+  } else {
+    const bySupplier = {};
+    items.forEach(i => {
+      const key = (i.supplier && i.supplier.trim()) ? i.supplier.trim() : 'Sin proveedor';
+      if (!bySupplier[key]) bySupplier[key] = [];
+      bySupplier[key].push(i);
+    });
+    const suppliers = Object.keys(bySupplier).sort(function(a, b) {
+      if (a === 'Sin proveedor') return 1;
+      if (b === 'Sin proveedor') return -1;
+      return a.localeCompare(b);
+    });
+    var sel = document.getElementById('export-by-supplier');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- Seleccionar proveedor --</option>';
+      suppliers.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s + ' (' + bySupplier[s].length + ')';
+        sel.appendChild(opt);
+      });
+    }
+    let html = '';
+    suppliers.forEach((sup, idx) => {
+      const groupItems = bySupplier[sup];
+      const firstItem = groupItems[0];
+      const contactParts = [];
+      if (firstItem && firstItem.supplier_phone) contactParts.push('Tel: ' + firstItem.supplier_phone);
+      if (firstItem && firstItem.supplier_contact) contactParts.push('Contacto: ' + firstItem.supplier_contact);
+      if (firstItem && firstItem.supplier_visit_day) contactParts.push('Día: ' + firstItem.supplier_visit_day);
+      const contactInfo = contactParts.length ? ' <span style="opacity:0.9; font-size:0.85em;">| ' + contactParts.join(' | ') + '</span>' : '';
+      const id = 'alert-group-' + idx;
+      const collapsed = idx > 0 ? ' collapsed' : '';
+      html += '<div class="inv-group-alert' + collapsed + '" id="' + id + '">';
+      html += '<div class="alert-group-header" onclick="toggleAlertGroup(\'' + id + '\')"><span class="alert-group-toggle">' + (idx > 0 ? '+' : '−') + '</span> ' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + ' <span style="opacity:0.9; font-weight:normal;">(' + groupItems.length + ')</span>' + contactInfo + '</div>';
+      html += '<div class="alert-group-body"><div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>Producto</th><th>Existencia</th><th>Stock</th><th>%</th><th>Pedido sugerido</th></tr></thead><tbody>';
+      groupItems.forEach(i => {
+        const pct = i.percentage != null ? i.percentage + '%' : '-';
+        html += '<tr class="inv-row-low"><td>' + (i.product_name || '') + '</td><td>' + (i.existence ?? '-') + '</td><td>' + (i.stock ?? '-') + '</td><td>' + pct + '</td><td>' + (i.suggested_order ?? '-') + '</td></tr>';
+      });
+      html += '</tbody></table></div></div></div>';
+    });
+    html += '<p class="text-danger small mt-2 mb-0"><strong>' + items.length + '</strong> item(s) con stock bajo o cero en ' + suppliers.length + ' proveedor(es).</p>';
+    document.getElementById('low-stock-content').innerHTML = html;
+  }
+}).catch(() => {
+  document.getElementById('low-stock-loading').style.display = 'none';
+  document.getElementById('low-stock-content').style.display = 'block';
+  document.getElementById('low-stock-content').innerHTML = '<p class="text-muted mb-0">No se pudo cargar el reporte.</p>';
+});
 
 document.getElementById('alerts-loading').style.display = 'block';
 apiGet(API_INV + '/alerts').then(data => {
