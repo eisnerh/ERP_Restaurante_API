@@ -5,7 +5,7 @@ from extensions import db
 class Table(db.Model):
     __tablename__ = "tables"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     number = db.Column(db.Integer, nullable=False)
     capacity = db.Column(db.Integer, nullable=False)

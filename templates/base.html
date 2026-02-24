@@ -12,13 +12,21 @@
 </head>
 <body>
   <nav class="navbar navbar-light bg-white border-bottom">
-    <div class="container d-flex justify-content-between align-items-center">
+    <div class="container d-flex justify-content-between align-items-center flex-wrap gap-2">
       <a class="navbar-brand d-flex align-items-center gap-2 text-decoration-none" href="{{ url_for('web.index') }}">
         {% if app_logo_url %}<img src="{{ app_logo_url }}" alt="{{ app_name }}" height="28" class="d-inline-block">{% endif %}
         {% if app_nav_icon %}<i class="bi {{ app_nav_icon }}"></i>{% endif %}
         <div class="d-flex flex-column">
           <span class="fw-semibold" style="line-height: 1.2; color: #fff;">{{ app_name }}</span>
+          {% if franchisees_list %}
+          <select class="form-select form-select-sm border-0 py-0 px-1 mt-0" id="navbar-franchisee-select" onchange="franchiseeChange(this)" onclick="event.stopPropagation()" style="max-width: 180px; font-size: 0.85rem; cursor: pointer;">
+            {% for f in franchisees_list %}
+            <option value="{{ f.id }}" {% if current_franchisee_id == f.id %}selected{% endif %}>{{ f.name }}{% if f.code %} ({{ f.code }}){% endif %}</option>
+            {% endfor %}
+          </select>
+          {% else %}
           <span class="small" style="line-height: 1.2; font-size: 0.85rem; color: rgba(255,255,255,0.85);">{{ current_franchisee.name if current_franchisee else 'Sucursal' }}</span>
+          {% endif %}
         </div>
       </a>
       <button class="btn btn-link p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-label="Abrir menú" style="color: #fff;">
@@ -33,16 +41,27 @@
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
     </div>
     <div class="offcanvas-body p-0 d-flex flex-column">
+      {% if franchisees_list %}
+      <div class="p-3 border-bottom bg-light">
+        <label class="form-label small text-muted mb-1"><i class="bi bi-shop me-1"></i>Franquiciado activo</label>
+        <select class="form-select form-select-sm" id="franchisee-select" onchange="franchiseeChange(this)">
+          {% for f in franchisees_list %}
+          <option value="{{ f.id }}" {% if current_franchisee_id == f.id %}selected{% endif %}>{{ f.name }}{% if f.code %} ({{ f.code }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <p class="small text-muted mb-0 mt-1">Todos los datos se filtran por el franquiciado seleccionado.</p>
+      </div>
+      {% endif %}
       <nav class="nav flex-column">
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.index') }}"><i class="bi bi-house me-2"></i>Inicio</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.menu') }}"><i class="bi bi-journal-richtext me-2"></i>Menú</a>
         <div class="border-bottom">
           <button class="nav-link py-3 px-3 w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#menu-frontdesk" aria-expanded="true" aria-controls="menu-frontdesk">
             <span><i class="bi bi-display me-2"></i>Frontdesk</span>
             <i class="bi bi-chevron-down small menu-toggle-icon"></i>
           </button>
           <div class="collapse show" id="menu-frontdesk">
-            <a class="nav-link py-2 px-3 ps-5 border-top" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
+            <a class="nav-link py-2 px-3 ps-5 border-top" href="{{ url_for('web.menu') }}"><i class="bi bi-journal-richtext me-2"></i>Menú</a>
+            <a class="nav-link py-2 px-3 ps-5" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
             <a class="nav-link py-2 px-3 ps-5" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a>
             <a class="nav-link py-2 px-3 ps-5 pb-3" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a>
           </div>
@@ -55,16 +74,6 @@
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Franquiciados</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.configuracion') }}"><i class="bi bi-gear me-2"></i>Configuración</a>
       </nav>
-      {% if franchisees_list %}
-      <div class="p-3 border-top mt-auto">
-        <label class="form-label small text-muted mb-1">Franquiciado</label>
-        <select class="form-select form-select-sm" id="franchisee-select" onchange="franchiseeChange(this)">
-          {% for f in franchisees_list %}
-          <option value="{{ f.id }}" {% if current_franchisee_id == f.id %}selected{% endif %}>{{ f.name }}{% if f.code %} ({{ f.code }}){% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
     </div>
   </div>
   <main class="container py-4">
@@ -74,11 +83,11 @@
   <script>
     function franchiseeChange(sel) {
       const fid = sel.value;
-      fetch('/api/franchisees/current', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ franchisee_id: fid ? parseInt(fid) : null })
-      }).then(res => res.json()).then(() => window.location.reload());
+      if (!fid) return;
+      // Usar query param para cambiar franquiciado (más fiable que sesión/fetch)
+      const url = new URL(window.location.href);
+      url.searchParams.set('franchisee_id', fid);
+      window.location.href = url.toString();
     }
   </script>
 </body>

@@ -1,11 +1,12 @@
 /* Helpers para CRUD contra la API. Si el servidor devuelve HTML (ej. 404), no se intenta parsear como JSON. */
-var API_TIMEOUT_MS = 20000;
+var API_TIMEOUT_MS = 10000;
 
 function fetchWithTimeout(url, opts, timeout) {
   timeout = timeout || API_TIMEOUT_MS;
   var controller = new AbortController();
   var tid = setTimeout(function() { controller.abort(); }, timeout);
-  var p = fetch(url, Object.assign({}, opts || {}, { signal: controller.signal }));
+  var baseOpts = { credentials: 'same-origin', signal: controller.signal };
+  var p = fetch(url, Object.assign({}, opts || {}, baseOpts));
   return p.finally(function() { clearTimeout(tid); });
 }
 

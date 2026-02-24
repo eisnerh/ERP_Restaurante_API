@@ -6,7 +6,7 @@ from datetime import datetime
 class Order(db.Model):
     __tablename__ = "orders"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     table_id = db.Column(db.Integer, db.ForeignKey("tables.id"), nullable=False)
     status = db.Column(db.String(20), default="pending")  # pending, preparing, served, paid
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -24,7 +24,7 @@ class Order(db.Model):
 class OrderItem(db.Model):
     __tablename__ = "order_items"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=False)
     dish_id = db.Column(db.Integer, db.ForeignKey("dishes.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)

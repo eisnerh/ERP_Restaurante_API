@@ -167,7 +167,7 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Importar inventario | `python scripts/import_inventory_excel.py --franchisee-id 1` |
 | Añadir columna purchase_price (BD existente) | `python scripts/migrate_add_purchase_price.py` |
 | Tabla empleados y vínculo desgloses (BD existente) | `python scripts/migrate_add_employees.py` |
-| Puestos, tipos deducción (BD existente) | `python scripts/migrate_add_positions_deductions.py` |
+| Puestos y deducciones estándar global (BD existente) | `python scripts/migrate_standard_positions_deductions.py` |
 | Campos HR empleados (cédula, salario, vacaciones) | `python scripts/migrate_hr_employee_fields.py` |
 | Datos de menú (opcional) | `python seed.py` |
 

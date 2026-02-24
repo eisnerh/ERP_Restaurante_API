@@ -6,7 +6,7 @@ from extensions import db
 class Payslip(db.Model):
     __tablename__ = "payslips"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=True)  # Empleado vinculado
     position_id = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)  # Puesto vinculado
@@ -15,6 +15,7 @@ class Payslip(db.Model):
     position = db.Column(db.String(80))  # LIDER DE COCINA, etc. (se mantiene para import/display)
     period_start = db.Column(db.Date, nullable=False)
     period_end = db.Column(db.Date, nullable=False)
+    tipo_pago = db.Column(db.String(20), default="mensual")  # mensual|quincenal|semanal|diario|por_hora
 
     # Desglose del salario
     salary_mes = db.Column(db.Float)
@@ -44,7 +45,7 @@ class PayslipLine(db.Model):
     """Línea de asignación o deducción. amount/quantity pueden ser negativos (ej. horas negociables día libre)."""
     __tablename__ = "payslip_lines"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     payslip_id = db.Column(db.Integer, db.ForeignKey("payslips.id"), nullable=False)
     deduction_type_id = db.Column(db.Integer, db.ForeignKey("deduction_types.id"), nullable=True)  # Tipo de deducción
     line_type = db.Column(db.String(20), nullable=False)  # asignacion | deduccion

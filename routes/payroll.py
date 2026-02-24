@@ -1,12 +1,11 @@
 """API de planilla: trabajos, cargos y importación desde Excel."""
 import io
 import re
-from datetime import datetime
+from datetime import datetime, date as date_type
 from flask import Blueprint, request, jsonify, Response, send_file
-from datetime import date as date_type
 from extensions import db
-from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine, Employee, Position, DeductionType, VacationRecord
-from schemas import PayrollLocationSchema, PayrollEntrySchema, PayslipSchema, EmployeeSchema, PositionSchema, DeductionTypeSchema, VacationRecordSchema
+from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine, Employee, Position, DeductionType, VacationRecord, PaymentRecord
+from schemas import PayrollLocationSchema, PayrollEntrySchema, PayslipSchema, EmployeeSchema, PositionSchema, DeductionTypeSchema, VacationRecordSchema, PaymentRecordSchema
 from utils.franchisee import get_or_default_franchisee_id
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/api/payroll")
@@ -25,6 +24,8 @@ vacation_record_schema = VacationRecordSchema()
 vacation_records_schema = VacationRecordSchema(many=True)
 payslip_schema = PayslipSchema()
 payslips_schema = PayslipSchema(many=True)
+payment_record_schema = PaymentRecordSchema()
+payment_records_schema = PaymentRecordSchema(many=True)
 
 # Rutas por defecto de Excels de planilla
 DEFAULT_PAYROLL_EXCEL = "excel_docs/DATOS DE RABAJOS Y CARGOS ADICIONALES PARA PLANILLA.xlsx"
@@ -244,9 +245,27 @@ def _parse_payroll_excel(path):
 
 
 # ---------- Locations ----------
+def _ensure_default_location(fid):
+    """Si el franquiciado no tiene ubicaciones, crea una con el nombre del franquiciado."""
+    if not fid:
+        return
+    from models import Franchisee
+    count = PayrollLocation.query.filter_by(franchisee_id=fid).count()
+    if count > 0:
+        return
+    f = db.session.get(Franchisee, fid)
+    if not f or not f.name:
+        return
+    loc = PayrollLocation(franchisee_id=fid, name=f.name.strip(), display_order=0)
+    db.session.add(loc)
+    db.session.commit()
+
+
 @payroll_bp.route("/locations", methods=["GET"])
 def list_locations():
     fid = get_or_default_franchisee_id()
+    if fid:
+        _ensure_default_location(fid)
     query = PayrollLocation.query.filter_by(franchisee_id=fid) if fid else PayrollLocation.query.filter(False)
     locations = query.order_by(PayrollLocation.display_order, PayrollLocation.name).all()
     return jsonify(locations_schema.dump(locations))
@@ -324,8 +343,19 @@ def create_employee():
             return jsonify({"error": "Ubicación no encontrada"}), 400
     data["franchisee_id"] = fid
     for f in ("fecha_ingreso", "fecha_salida"):
-        if f in data and data[f]:
-            data[f] = _parse_date_param(data[f])
+        if f in data:
+            parsed = _parse_date_param(data[f]) if data[f] else None
+            if parsed is not None:
+                data[f] = parsed
+            else:
+                data.pop(f, None)  # Quitar clave para que el esquema no intente deserializar
+    # Contrato indefinido: fecha_salida = fecha_ingreso + 99 años (efectivamente sin fin)
+    if data.get("tipo_contrato") == "indefinido" and "fecha_salida" not in data:
+        base = data.get("fecha_ingreso") or date_type.today()
+        try:
+            data["fecha_salida"] = base.replace(year=base.year + 99)
+        except ValueError:  # 29 feb en año no bisiesto
+            data["fecha_salida"] = base.replace(year=base.year + 99, day=28)
     emp = employee_schema.load(data, session=db.session)
     db.session.add(emp)
     db.session.commit()
@@ -344,13 +374,189 @@ def employee_detail(emp_id):
         data = request.get_json() or {}
         for f in ("fecha_ingreso", "fecha_salida"):
             if f in data:
-                data[f] = _parse_date_param(data[f]) if data[f] else None
+                parsed = _parse_date_param(data[f]) if data[f] else None
+                if parsed is not None:
+                    data[f] = parsed
+                else:
+                    data[f] = None  # En PUT parcial, pasar None para limpiar el campo
+        # Contrato indefinido: fecha_salida = fecha_ingreso + 99 años
+        tipo = data.get("tipo_contrato") or emp.tipo_contrato
+        if tipo == "indefinido" and (data.get("fecha_salida") is None or "fecha_salida" not in data):
+            base = data.get("fecha_ingreso") or emp.fecha_ingreso or date_type.today()
+            try:
+                data["fecha_salida"] = base.replace(year=base.year + 99)
+            except ValueError:
+                data["fecha_salida"] = base.replace(year=base.year + 99, day=28)
         employee_schema.load(data, instance=emp, session=db.session, partial=True)
         db.session.commit()
         return jsonify(employee_schema.dump(emp))
     db.session.delete(emp)
     db.session.commit()
     return "", 204
+
+
+@payroll_bp.route("/employees/<int:emp_id>/report", methods=["GET"])
+def employee_report(emp_id):
+    """
+    Reporte por empleado: pagos realizados y deducciones aplicadas.
+    Query: from_date=YYYY-MM-DD, to_date=YYYY-MM-DD (opcional).
+    """
+    fid = get_or_default_franchisee_id()
+    emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if fid else None
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 404
+    from_date = _parse_date_param(request.args.get("from_date"))
+    to_date = _parse_date_param(request.args.get("to_date"))
+
+    # Pagos registrados (PaymentRecord)
+    pay_query = PaymentRecord.query.filter_by(employee_id=emp_id, franchisee_id=fid)
+    if from_date:
+        pay_query = pay_query.filter(PaymentRecord.payment_date >= from_date)
+    if to_date:
+        pay_query = pay_query.filter(PaymentRecord.payment_date <= to_date)
+    payments = pay_query.order_by(PaymentRecord.payment_date.desc()).all()
+
+    # Desgloses (Payslips) para deducciones - por employee_id o por nombre (legacy)
+    emp_name = (emp.name or "").strip()
+    ps_query = Payslip.query.filter(
+        Payslip.franchisee_id == fid,
+        db.or_(
+            Payslip.employee_id == emp_id,
+            (Payslip.employee_id.is_(None)) & (Payslip.employee_name.ilike(emp_name)) if emp_name else (Payslip.id < 0),
+        ),
+    )
+    if from_date:
+        ps_query = ps_query.filter(Payslip.period_end >= from_date)
+    if to_date:
+        ps_query = ps_query.filter(Payslip.period_start <= to_date)
+    payslips = ps_query.order_by(Payslip.period_start.desc()).all()
+
+    # Deducciones por concepto (agregadas de todos los payslips)
+    deductions_by_concept = {}
+    for ps in payslips:
+        for line in ps.lines:
+            if line.line_type == "deduccion" and line.concept:
+                key = (line.concept.strip() or "Otro")[:80]
+                deductions_by_concept[key] = deductions_by_concept.get(key, 0) + (line.amount or 0)
+
+    total_paid = sum((p.amount or 0) for p in payments)
+    total_deductions = sum(deductions_by_concept.values())
+
+    return jsonify({
+        "employee": employee_schema.dump(emp),
+        "from_date": from_date.isoformat() if from_date else None,
+        "to_date": to_date.isoformat() if to_date else None,
+        "payments": [
+            {
+                "id": p.id,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "amount": p.amount,
+                "periodo_tipo": p.periodo_tipo,
+                "period_start": p.period_start.isoformat() if p.period_start else None,
+                "period_end": p.period_end.isoformat() if p.period_end else None,
+                "hours_worked": p.hours_worked,
+                "days_worked": p.days_worked,
+                "location_name": p.location.name if p.location else None,
+            }
+            for p in payments
+        ],
+        "payslips": [
+            {
+                "id": ps.id,
+                "period_start": ps.period_start.isoformat() if ps.period_start else None,
+                "period_end": ps.period_end.isoformat() if ps.period_end else None,
+                "location_name": ps.location_name,
+                "total_asignaciones": ps.total_asignaciones,
+                "total_deducciones": ps.total_deducciones,
+                "total_depositado": ps.total_depositado,
+                "deductions": [
+                    {"concept": pl.concept, "amount": pl.amount}
+                    for pl in ps.lines if pl.line_type == "deduccion"
+                ],
+            }
+            for ps in payslips
+        ],
+        "deductions_summary": [{"concept": k, "total": v} for k, v in sorted(deductions_by_concept.items())],
+        "total_paid": round(total_paid, 2),
+        "total_deductions": round(total_deductions, 2),
+        "net": round(total_paid - total_deductions, 2),
+    })
+
+
+@payroll_bp.route("/employees/<int:emp_id>/report-pdf", methods=["GET"])
+def employee_report_pdf(emp_id):
+    """Genera PDF del reporte por empleado. Query: from_date=, to_date= (opcional)."""
+    from flask import Response
+    from utils.payslip_pdf import build_employee_report_pdf
+    fid = get_or_default_franchisee_id()
+    emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if fid else None
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 404
+    from_date = _parse_date_param(request.args.get("from_date"))
+    to_date = _parse_date_param(request.args.get("to_date"))
+
+    pay_query = PaymentRecord.query.filter_by(employee_id=emp_id, franchisee_id=fid)
+    if from_date:
+        pay_query = pay_query.filter(PaymentRecord.payment_date >= from_date)
+    if to_date:
+        pay_query = pay_query.filter(PaymentRecord.payment_date <= to_date)
+    payments = pay_query.order_by(PaymentRecord.payment_date.desc()).all()
+
+    emp_name = (emp.name or "").strip()
+    ps_query = Payslip.query.filter(
+        Payslip.franchisee_id == fid,
+        db.or_(
+            Payslip.employee_id == emp_id,
+            (Payslip.employee_id.is_(None)) & (Payslip.employee_name.ilike(emp_name)) if emp_name else (Payslip.id < 0),
+        ),
+    )
+    if from_date:
+        ps_query = ps_query.filter(Payslip.period_end >= from_date)
+    if to_date:
+        ps_query = ps_query.filter(Payslip.period_start <= to_date)
+    payslips = ps_query.order_by(Payslip.period_start.desc()).all()
+
+    deductions_by_concept = {}
+    for ps in payslips:
+        for line in ps.lines:
+            if line.line_type == "deduccion" and line.concept:
+                key = (line.concept.strip() or "Otro")[:80]
+                deductions_by_concept[key] = deductions_by_concept.get(key, 0) + (line.amount or 0)
+
+    total_paid = sum((p.amount or 0) for p in payments)
+    total_deductions = sum(deductions_by_concept.values())
+
+    report_data = {
+        "employee": employee_schema.dump(emp),
+        "from_date": from_date.isoformat() if from_date else None,
+        "to_date": to_date.isoformat() if to_date else None,
+        "payments": [
+            {
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "amount": p.amount,
+                "periodo_tipo": p.periodo_tipo,
+                "period_start": p.period_start.isoformat() if p.period_start else None,
+                "period_end": p.period_end.isoformat() if p.period_end else None,
+                "hours_worked": p.hours_worked,
+                "days_worked": p.days_worked,
+                "location_name": p.location.name if p.location else None,
+            }
+            for p in payments
+        ],
+        "deductions_summary": [{"concept": k, "total": v} for k, v in sorted(deductions_by_concept.items())],
+        "total_paid": round(total_paid, 2),
+        "total_deductions": round(total_deductions, 2),
+        "net": round(total_paid - total_deductions, 2),
+    }
+    pdf_bytes = build_employee_report_pdf(report_data)
+    f_str = (from_date.isoformat() if from_date else "all")
+    t_str = (to_date.isoformat() if to_date else "all")
+    filename = f"reporte_empleado_{emp_id}_{f_str}_{t_str}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 @payroll_bp.route("/employees/<int:emp_id>/vacation-records", methods=["GET", "POST"])
@@ -366,24 +572,21 @@ def employee_vacation_records(emp_id):
     data = request.get_json() or {}
     data["employee_id"] = emp_id
     for f in ("fecha_desde", "fecha_hasta"):
-        if f in data and data[f]:
-            data[f] = _parse_date_param(data[f])
+        if f in data:
+            data[f] = _parse_date_param(data[f]) if data[f] else None
     rec = vacation_record_schema.load(data, session=db.session)
     db.session.add(rec)
-    emp.vacaciones_dias_tomados = (emp.vacaciones_dias_tomados or 0) + (rec.dias_tomados or 0)
+    # Los días se deducen automáticamente desde vacation_records (Employee.vacation_days)
     db.session.commit()
     return jsonify(vacation_record_schema.dump(rec)), 201
 
 
-# ---------- Positions (Puestos) ----------
+# ---------- Positions (Puestos) - estándar global ----------
 @payroll_bp.route("/positions", methods=["GET"])
 def list_positions():
-    """Lista puestos del franquiciado. Tipos: empleado, administrador, administrativo, inventario, custom."""
-    fid = get_or_default_franchisee_id()
-    if not fid:
-        return jsonify([])
+    """Lista puestos estándar. Tipos: empleado, administrador, administrativo, inventario, custom."""
     position_type = request.args.get("type")  # Filtrar por tipo
-    query = Position.query.filter_by(franchisee_id=fid)
+    query = Position.query
     if position_type in ("empleado", "administrador", "administrativo", "inventario", "custom"):
         query = query.filter_by(position_type=position_type)
     positions = query.order_by(Position.display_order, Position.name).all()
@@ -392,12 +595,8 @@ def list_positions():
 
 @payroll_bp.route("/positions", methods=["POST"])
 def create_position():
-    """Crea un puesto. position_type: empleado|administrador|administrativo|inventario|custom."""
-    fid = get_or_default_franchisee_id()
-    if not fid:
-        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    """Crea un puesto estándar. position_type: empleado|administrador|administrativo|inventario|custom."""
     data = request.get_json() or {}
-    data["franchisee_id"] = fid
     if not data.get("position_type"):
         data["position_type"] = "empleado"
     if data["position_type"] not in ("empleado", "administrador", "administrativo", "inventario", "custom"):
@@ -410,12 +609,17 @@ def create_position():
 
 @payroll_bp.route("/positions/<int:pos_id>", methods=["GET", "PUT", "DELETE"])
 def position_detail(pos_id):
-    fid = get_or_default_franchisee_id()
-    pos = Position.query.filter_by(id=pos_id, franchisee_id=fid).first() if fid else None
+    pos = Position.query.get(pos_id)
     if not pos:
         return jsonify({"error": "Puesto no encontrado"}), 404
     if request.method == "GET":
-        return jsonify(position_schema.dump(pos))
+        data = position_schema.dump(pos)
+        breakdown = pos.get_salary_breakdown()
+        if breakdown:
+            data["salary_breakdown"] = breakdown
+            data["ccss_mensual"] = pos.get_ccss_deduction()
+            data["ccss_quincena"] = pos.get_ccss_deduction(breakdown.get("salario_quincena"))
+        return jsonify(data)
     if request.method == "PUT":
         data = request.get_json() or {}
         if data.get("position_type") and data["position_type"] not in ("empleado", "administrador", "administrativo", "inventario", "custom"):
@@ -428,25 +632,18 @@ def position_detail(pos_id):
     return "", 204
 
 
-# ---------- Deduction Types (Tipos de deducción) ----------
+# ---------- Deduction Types (Tipos de deducción) - estándar global ----------
 @payroll_bp.route("/deduction-types", methods=["GET"])
 def list_deduction_types():
-    """Lista tipos de deducción. can_be_negative permite valores negativos (ej. horas negociables)."""
-    fid = get_or_default_franchisee_id()
-    if not fid:
-        return jsonify([])
-    types = DeductionType.query.filter_by(franchisee_id=fid).order_by(DeductionType.display_order, DeductionType.name).all()
+    """Lista tipos de deducción estándar. can_be_negative permite valores negativos (ej. horas negociables)."""
+    types = DeductionType.query.order_by(DeductionType.display_order, DeductionType.name).all()
     return jsonify(deduction_types_schema.dump(types))
 
 
 @payroll_bp.route("/deduction-types", methods=["POST"])
 def create_deduction_type():
-    """Crea tipo de deducción. can_be_negative: si True, amount/quantity pueden ser negativos."""
-    fid = get_or_default_franchisee_id()
-    if not fid:
-        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    """Crea tipo de deducción estándar. can_be_negative: si True, amount/quantity pueden ser negativos."""
     data = request.get_json() or {}
-    data["franchisee_id"] = fid
     dt = deduction_type_schema.load(data, session=db.session)
     db.session.add(dt)
     db.session.commit()
@@ -455,8 +652,7 @@ def create_deduction_type():
 
 @payroll_bp.route("/deduction-types/<int:dt_id>", methods=["GET", "PUT", "DELETE"])
 def deduction_type_detail(dt_id):
-    fid = get_or_default_franchisee_id()
-    dt = DeductionType.query.filter_by(id=dt_id, franchisee_id=fid).first() if fid else None
+    dt = DeductionType.query.get(dt_id)
     if not dt:
         return jsonify({"error": "Tipo de deducción no encontrado"}), 404
     if request.method == "GET":
@@ -527,7 +723,7 @@ def entry_detail(entry_id):
             if not emp:
                 data.pop("employee_id", None)
         if data.get("position_id"):
-            pos = Position.query.filter_by(id=data["position_id"], franchisee_id=fid).first()
+            pos = Position.query.get(data["position_id"]) if data.get("position_id") else None
             if not pos:
                 data.pop("position_id", None)
         entry_schema.load(data, instance=entry, session=db.session, partial=True)
@@ -556,7 +752,7 @@ def create_entry():
         if not emp:
             data.pop("employee_id", None)
     if data.get("position_id"):
-        pos = Position.query.filter_by(id=data["position_id"], franchisee_id=fid).first()
+        pos = Position.query.get(data["position_id"]) if data.get("position_id") else None
         if not pos:
             data.pop("position_id", None)
     entry = entry_schema.load(data, session=db.session)
@@ -726,6 +922,256 @@ def export_payroll_excel():
     )
 
 
+def _normalize_emp_name(s):
+    """Normaliza nombre para agrupar: sin acentos, espacios colapsados, mayúsculas."""
+    if not s:
+        return ""
+    import unicodedata
+    s = str(s).strip().upper()
+    nfd = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+    return " ".join(s.split())
+
+
+# ---------- Generar desgloses desde BD (consultas SQL) ----------
+def _generate_payslips_from_entries(fid, location_id, period_date, replace=False):
+    """
+    Genera Payslips desde PayrollEntry y Employee (consultas SQL).
+    Agrupa registros por empleado y período, calcula salarios y líneas desde la BD.
+    """
+    from calendar import monthrange
+
+    loc = PayrollLocation.query.filter_by(id=location_id, franchisee_id=fid).first()
+    if not loc:
+        return 0, "Ubicación no encontrada"
+    location_name = loc.name
+
+    # Período: mes del period_date
+    period_start = date_type(period_date.year, period_date.month, 1)
+    _, last_day = monthrange(period_date.year, period_date.month)
+    period_end = date_type(period_date.year, period_date.month, last_day)
+
+    # Registros del mes (period_date dentro del mes)
+    entries = PayrollEntry.query.filter(
+        PayrollEntry.location_id == location_id,
+        PayrollEntry.period_date >= period_start,
+        PayrollEntry.period_date <= period_end,
+    ).order_by(PayrollEntry.employee_name).all()
+
+    if not entries:
+        return 0, "No hay registros de planilla para esa ubicación y período"
+
+    if replace:
+        payslips_to_del = Payslip.query.filter(
+            Payslip.franchisee_id == fid,
+            Payslip.location_name == location_name,
+            Payslip.period_start == period_start,
+            Payslip.period_end == period_end,
+        ).all()
+        for ps in payslips_to_del:
+            db.session.delete(ps)
+        db.session.flush()
+
+    # Agrupar por empleado (nombre normalizado: sin acentos, espacios colapsados)
+    groups = {}
+    for e in entries:
+        key = _normalize_emp_name(e.employee_name)
+        if not key:
+            continue
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(e)
+
+    created = 0
+    for emp_name_upper, group_entries in groups.items():
+        emp_id = next((e.employee_id for e in group_entries if e.employee_id), None)
+        emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if emp_id else None
+        if not emp:
+            # Buscar por nombre normalizado (sin acentos)
+            all_emps = Employee.query.filter_by(franchisee_id=fid).all()
+            for ae in all_emps:
+                if _normalize_emp_name(ae.name) == emp_name_upper:
+                    emp = ae
+                    break
+        emp_name = group_entries[0].employee_name if group_entries else ""
+        if emp:
+            emp_name = emp.name or emp_name
+        if not emp_name:
+            continue
+
+        pos = emp.position if emp else None
+        pos_id = pos.id if pos else None
+        pos_name = pos.name if pos else None
+        if not pos_name and group_entries:
+            first_pos = Position.query.get(group_entries[0].position_id) if group_entries[0].position_id else None
+            pos_name = first_pos.name if first_pos else None
+            pos_id = first_pos.id if first_pos else None
+            if first_pos and not pos:
+                pos = first_pos
+
+        # Salario: empleado primero, luego puesto (desglose automático desde puesto)
+        salario_mes = emp.salario_base if emp else None
+        if (salario_mes is None or salario_mes <= 0) and pos and pos.salario_base:
+            salario_mes = pos.salario_base
+        if salario_mes is None or salario_mes <= 0:
+            salario_mes = 0
+        # Desglose: usar puesto si tiene salario_base, sino calcular con defaults
+        if pos and pos.get_salary_breakdown():
+            sb = pos.get_salary_breakdown()
+            salary_quincena = sb.get("salario_quincena")
+            salary_semana = sb.get("salario_semana")
+            salary_dia = sb.get("salario_dia")
+            salary_hora_ord = sb.get("salario_hora")
+        else:
+            hpd = (pos.horas_por_dia if pos else None) or 8
+            dps = (pos.dias_por_semana if pos else None) or 6
+            semanas_mes = 4.33
+            dias_mes = round(dps * semanas_mes, 1)
+            salary_quincena = salario_mes / 2 if salario_mes else None
+            salary_semana = salario_mes / semanas_mes if salario_mes else None
+            salary_dia = salario_mes / dias_mes if salario_mes else None
+            salary_hora_ord = salario_mes / (dias_mes * hpd) if salario_mes else None
+        salary_hora_extra = salary_hora_ord * 1.5 if salary_hora_ord else None  # CR: 1.5x
+
+        numero_cuenta = emp.numero_cuenta if emp else None
+        if not numero_cuenta and group_entries:
+            for ge in group_entries:
+                if ge.numero_cuenta:
+                    numero_cuenta = ge.numero_cuenta
+                    break
+
+        total_asig = salario_mes or 0
+        total_ded = 0
+        lines = []
+
+        for ge in group_entries:
+            if ge.entry_type == "mermas":
+                amt = (ge.creditos_comida or 0) + (ge.vale_efectivo or 0)
+                if amt == 0 and (ge.ccss_rebajos or 0) != 0:
+                    amt = ge.ccss_rebajos
+                if amt == 0:
+                    amt = ge.creditos_comida or 0
+                amt = -abs(float(amt)) if amt else 0
+                lines.append({"line_type": "deduccion", "concept": "Mermas (gasto del empleado)", "amount": amt})
+                total_ded += abs(amt)
+            else:
+                if (ge.hrs_extra or 0) != 0 and salary_hora_extra:
+                    val = ge.hrs_extra * salary_hora_extra
+                    lines.append({"line_type": "asignacion", "concept": "Horas extra", "amount": val, "quantity": ge.hrs_extra})
+                    total_asig += val
+                if (ge.creditos_comida or 0) != 0:
+                    val = float(ge.creditos_comida)
+                    lines.append({"line_type": "deduccion", "concept": "Créditos comida", "amount": -abs(val) if val > 0 else val})
+                    total_ded += abs(val) if val > 0 else abs(val)
+                if (ge.vale_efectivo or 0) != 0:
+                    val = float(ge.vale_efectivo)
+                    lines.append({"line_type": "deduccion", "concept": "Vale efectivo", "amount": -abs(val) if val > 0 else val})
+                    total_ded += abs(val) if val > 0 else abs(val)
+                if (ge.ccss_rebajos or 0) != 0:
+                    val = float(ge.ccss_rebajos)
+                    lines.append({"line_type": "deduccion", "concept": "CCSS / Rebajos", "amount": -abs(val)})
+                    total_ded += abs(val)
+
+        # Deducción CCSS automática si no viene en registros (ley CR) y el puesto tiene aplicar_ccss=True
+        has_ccss = any("CCSS" in str(l.get("concept", "")) for l in lines)
+        aplicar_ccss = pos is None or getattr(pos, "aplicar_ccss", True)  # default True si no existe el campo
+        if not has_ccss and salario_mes and aplicar_ccss:
+            ccss_pct = None
+            if pos and pos.ccss_pct is not None:
+                ccss_pct = pos.ccss_pct
+            else:
+                dt_ccss = DeductionType.query.filter(
+                    DeductionType.name.ilike("%ccss%trabajador%")
+                ).first()
+                if dt_ccss and dt_ccss.rate_pct is not None:
+                    ccss_pct = dt_ccss.rate_pct
+            if ccss_pct is not None:
+                base_ccss = salary_quincena if salary_quincena else salario_mes
+                ccss_amt = round(base_ccss * ccss_pct, 2)
+                if ccss_amt > 0:
+                    lines.append({"line_type": "deduccion", "concept": "CCSS Trabajador", "amount": -ccss_amt})
+                    total_ded += ccss_amt
+
+        if salario_mes and not any("Salario base" in str(l.get("concept", "")) for l in lines):
+            amt = salary_quincena if salary_quincena else salario_mes
+            lines.insert(0, {"line_type": "asignacion", "concept": "Salario base", "amount": amt})
+
+        total_depositado = total_asig - total_ded
+
+        tipo_pago = (emp.periodo_pago if emp and emp.periodo_pago else None) or "mensual"
+        ps = Payslip(
+            franchisee_id=fid,
+            employee_id=emp.id if emp else None,
+            position_id=pos_id,
+            location_name=location_name,
+            employee_name=emp_name,
+            position=pos_name,
+            period_start=period_start,
+            period_end=period_end,
+            tipo_pago=tipo_pago,
+            salary_mes=salario_mes,
+            salary_quincena=salary_quincena,
+            salary_semana=salary_semana,
+            salary_dia=salary_dia,
+            salary_hora_ordinaria=salary_hora_ord,
+            salary_hora_extra=salary_hora_extra,
+            total_asignaciones=total_asig,
+            total_deducciones=total_ded,
+            total_depositado=total_depositado,
+            numero_cuenta=numero_cuenta,
+        )
+        db.session.add(ps)
+        db.session.flush()
+        for line in lines:
+            pl = PayslipLine(
+                payslip_id=ps.id,
+                line_type=line.get("line_type", "asignacion"),
+                concept=line.get("concept", ""),
+                amount=line.get("amount", 0),
+                quantity=line.get("quantity"),
+            )
+            db.session.add(pl)
+        created += 1
+
+    db.session.commit()
+    return created, None
+
+
+@payroll_bp.route("/generate-payslips", methods=["POST"])
+def generate_payslips():
+    """
+    Genera desgloses de pago desde la BD (PayrollEntry + Employee).
+    Body: location_id (int) o location_name (str), period_date (YYYY-MM-DD), replace (bool).
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    period_date = _parse_date_param(data.get("period_date"))
+    if not period_date:
+        return jsonify({"error": "Falta period_date (YYYY-MM-DD)"}), 400
+    location_id = data.get("location_id")
+    if location_id is not None and not isinstance(location_id, (int, float)):
+        try:
+            location_id = int(location_id)
+        except (TypeError, ValueError):
+            location_id = None
+    location_name = (data.get("location_name") or "").strip()
+    if not location_id and location_name:
+        loc = PayrollLocation.query.filter_by(franchisee_id=fid, name=location_name).first()
+        location_id = loc.id if loc else None
+    if not location_id:
+        return jsonify({"error": "Falta location_id o location_name"}), 400
+    replace = data.get("replace", False)
+    created, err = _generate_payslips_from_entries(fid, location_id, period_date, replace=replace)
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify({
+        "message": "Desgloses generados desde la base de datos",
+        "payslips_created": created,
+    }), 200
+
+
 # ---------- Desglose de planilla (payslip): salario por mes/quincena/semana/día/hora ----------
 def _resolve_payslip_excel_path(base_dir, path_or_none):
     import os
@@ -884,7 +1330,7 @@ def import_payslip_excel():
         return jsonify({"error": str(e)}), 400
     skip_sheets = ("RESUMEN DE PLANILLA", "RESUMEN")
     emp_by_name = {e.name.strip().upper(): e for e in Employee.query.filter_by(franchisee_id=fid, active=True).all() if (e.name or "").strip()}
-    pos_by_name = {p.name.strip().upper(): p for p in Position.query.filter_by(franchisee_id=fid).all() if (p.name or "").strip()}
+    pos_by_name = {p.name.strip().upper(): p for p in Position.query.all() if (p.name or "").strip()}
     created = 0
     for sheet_name in wb.sheetnames:
         if any(skip in sheet_name.upper() for skip in skip_sheets):
@@ -894,12 +1340,14 @@ def import_payslip_excel():
         if not parsed.get("employee_name") or not parsed.get("period_start"):
             continue
         if replace:
-            Payslip.query.filter(
+            payslips_to_del = Payslip.query.filter(
                 Payslip.franchisee_id == fid,
                 Payslip.location_name == location_name,
                 Payslip.employee_name == parsed["employee_name"],
                 Payslip.period_start == parsed["period_start"],
-            ).delete(synchronize_session=False)
+            ).all()
+            for ps in payslips_to_del:
+                db.session.delete(ps)
         emp_name = (parsed.get("employee_name") or "").strip()
         emp = emp_by_name.get(emp_name.upper()) if emp_name else None
         pos_name = (parsed.get("position") or "").strip()
@@ -913,6 +1361,7 @@ def import_payslip_excel():
             position=parsed.get("position"),
             period_start=parsed["period_start"],
             period_end=parsed["period_end"],
+            tipo_pago=parsed.get("tipo_pago") or "mensual",
             salary_mes=parsed.get("salary_mes"),
             salary_quincena=parsed.get("salary_quincena"),
             salary_semana=parsed.get("salary_semana"),
@@ -944,3 +1393,151 @@ def import_payslip_excel():
         "location_name": location_name,
         "payslips_created": created,
     }), 200
+
+
+# ---------- Registro de pagos ----------
+@payroll_bp.route("/payments", methods=["GET"])
+def list_payments():
+    """Lista registros de pago del franquiciado. Query: employee_id=, location_id=, from_date=, to_date=."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    query = PaymentRecord.query.filter_by(franchisee_id=fid)
+    employee_id = request.args.get("employee_id", type=int)
+    location_id = request.args.get("location_id", type=int)
+    from_date = _parse_date_param(request.args.get("from_date"))
+    to_date = _parse_date_param(request.args.get("to_date"))
+    if employee_id:
+        query = query.filter_by(employee_id=employee_id)
+    if location_id:
+        query = query.filter_by(location_id=location_id)
+    if from_date:
+        query = query.filter(PaymentRecord.payment_date >= from_date)
+    if to_date:
+        query = query.filter(PaymentRecord.payment_date <= to_date)
+    records = query.order_by(PaymentRecord.payment_date.desc()).limit(500).all()
+    data = payment_records_schema.dump(records)
+    for i, r in enumerate(records):
+        if r.employee:
+            data[i]["employee_name"] = r.employee.name
+        if r.location:
+            data[i]["location_name"] = r.location.name
+    return jsonify(data)
+
+
+def _calc_payment_amount(emp, data):
+    """Calcula amount según periodo_tipo y datos del empleado."""
+    periodo = data.get("periodo_tipo") or emp.periodo_pago or "mensual"
+    salario = emp.salario_base or 0
+    amount = _to_float(data.get("amount"))
+
+    if periodo == "por_hora":
+        hrs = _to_float(data.get("hours_worked")) or 0
+        hrs_extra = _to_float(data.get("hours_extra")) or 0
+        rate = _to_float(data.get("hourly_rate")) or emp.salario_hora or (salario / ((emp.horas_por_dia or 8) * 22) if salario else None)
+        is_festivo = data.get("hours_extra_festivo") in (True, "true", "1")
+        if rate and rate > 0 and (hrs > 0 or hrs_extra > 0):
+            # CR Código de Trabajo: ordinarias 1x, extras 1.5x (50% recargo), festivos 2x
+            amt = (hrs * rate) + (hrs_extra * rate * (2.0 if is_festivo else 1.5))
+            return round(amt, 2), {"hours_worked": hrs, "hours_extra": hrs_extra, "hourly_rate": rate, "hours_extra_festivo": is_festivo}
+
+    def _add_hours_extra(base_amt, extra_data):
+        """Suma horas extras según CR: 1.5x ordinarias, 2x festivos."""
+        hrs_extra = _to_float(data.get("hours_extra")) or 0
+        if hrs_extra <= 0:
+            return base_amt, extra_data
+        rate = emp.salario_hora or (salario / ((emp.horas_por_dia or 8) * 22) if salario else None)
+        if not rate or rate <= 0:
+            return base_amt, extra_data
+        is_festivo = data.get("hours_extra_festivo") in (True, "true", "1")
+        ext = hrs_extra * rate * (2.0 if is_festivo else 1.5)
+        extra_data["hours_extra"] = hrs_extra
+        extra_data["hours_extra_festivo"] = is_festivo
+        return base_amt + ext, extra_data
+
+    if periodo == "diario":
+        days = _to_float(data.get("days_worked"))
+        incl_sun = data.get("include_sundays") in (True, "true", "1")
+        if days and days > 0 and salario > 0:
+            dias_mes = 26 if incl_sun else 22
+            base = salario / dias_mes * days
+            base, extra = _add_hours_extra(base, {"days_worked": days, "include_sundays": incl_sun})
+            return round(base, 2), extra
+
+    if periodo == "mensual" and salario > 0 and (amount is None or amount <= 0):
+        base, extra = _add_hours_extra(salario, {})
+        return round(base, 2), extra
+    if periodo == "quincenal" and salario > 0 and (amount is None or amount <= 0):
+        base, extra = _add_hours_extra(salario / 2, {})
+        return round(base, 2), extra
+    if periodo == "semanal" and salario > 0 and (amount is None or amount <= 0):
+        base, extra = _add_hours_extra(salario / 4.33, {})
+        return round(base, 2), extra
+
+    return amount, {}
+
+
+@payroll_bp.route("/payments", methods=["POST"])
+def create_payment():
+    """Registra un pago. Body: employee_id, amount, payment_date, period_start, period_end, periodo_tipo, hours_worked, hourly_rate, days_worked, include_sundays, location_id, payslip_id, notes."""
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    if not data.get("employee_id"):
+        return jsonify({"error": "Falta employee_id"}), 400
+    emp = Employee.query.filter_by(id=data["employee_id"], franchisee_id=fid).first()
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 400
+    # Calcular amount automáticamente si es posible
+    calc_amt, extra = _calc_payment_amount(emp, data)
+    if calc_amt is not None and calc_amt > 0:
+        data["amount"] = calc_amt
+        data.update(extra)
+    if data.get("amount") is None:
+        return jsonify({"error": "Falta amount. Ingresa datos según el período (días, horas, etc.) o el salario del empleado."}), 400
+    payment_date = _parse_date_param(data.get("payment_date"))
+    if not payment_date:
+        payment_date = date_type.today()
+    for f in ("period_start", "period_end"):
+        if f in data and data[f]:
+            data[f] = _parse_date_param(data[f])
+    data["franchisee_id"] = fid
+    data["payment_date"] = payment_date
+    data.setdefault("periodo_tipo", emp.periodo_pago or "mensual")
+    rec = payment_record_schema.load(data, session=db.session)
+    db.session.add(rec)
+    db.session.commit()
+    out = payment_record_schema.dump(rec)
+    out["employee_name"] = emp.name
+    return jsonify(out), 201
+
+
+@payroll_bp.route("/payments/<int:pay_id>", methods=["GET", "PUT", "DELETE"])
+def payment_detail(pay_id):
+    """Obtiene, actualiza o elimina un registro de pago."""
+    fid = get_or_default_franchisee_id()
+    rec = PaymentRecord.query.filter_by(id=pay_id, franchisee_id=fid).first() if fid else None
+    if not rec:
+        return jsonify({"error": "Registro no encontrado"}), 404
+    if request.method == "GET":
+        out = payment_record_schema.dump(rec)
+        if rec.employee:
+            out["employee_name"] = rec.employee.name
+        return jsonify(out)
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        for f in ("payment_date", "period_start", "period_end"):
+            if f in data and data[f]:
+                data[f] = _parse_date_param(data[f])
+        if rec.employee:
+            calc_amt, extra = _calc_payment_amount(rec.employee, {**data, "periodo_tipo": data.get("periodo_tipo") or rec.periodo_tipo})
+            if calc_amt is not None and calc_amt > 0:
+                data["amount"] = calc_amt
+                data.update(extra)
+        payment_record_schema.load(data, instance=rec, session=db.session, partial=True)
+        db.session.commit()
+        return jsonify(payment_record_schema.dump(rec))
+    db.session.delete(rec)
+    db.session.commit()
+    return "", 204

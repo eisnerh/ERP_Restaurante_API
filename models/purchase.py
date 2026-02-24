@@ -6,7 +6,7 @@ from extensions import db
 class PurchaseOrder(db.Model):
     __tablename__ = "purchase_orders"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), nullable=False)
     order_number = db.Column(db.String(50))
@@ -36,7 +36,7 @@ class PurchaseOrder(db.Model):
 class PurchaseOrderItem(db.Model):
     __tablename__ = "purchase_order_items"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     purchase_order_id = db.Column(db.Integer, db.ForeignKey("purchase_orders.id"), nullable=False)
     inventory_item_id = db.Column(db.Integer, db.ForeignKey("inventory_items.id"), nullable=True)
     product_name = db.Column(db.String(200), nullable=False)  # Por si no está en inventario

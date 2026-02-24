@@ -50,6 +50,11 @@ class Config:
     """Configuración base para ERP. Solo PostgreSQL."""
     SECRET_KEY = os.environ.get("SECRET_KEY") or "clave-secreta-erp-cambiar-en-produccion"
 
+    # Sesión: persistir cookie correctamente
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_HTTPONLY = True
+    PERMANENT_SESSION_LIFETIME = 86400 * 7  # 7 días
+
     # Base de datos: solo PostgreSQL (PGHOST, PGUSER, etc. en .env)
     SQLALCHEMY_DATABASE_URI = _get_db_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False

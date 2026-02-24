@@ -6,7 +6,7 @@ from extensions import db
 class PayrollEntry(db.Model):
     __tablename__ = "payroll_entries"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     location_id = db.Column(db.Integer, db.ForeignKey("payroll_locations.id"), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=True)  # Empleado vinculado
     position_id = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)  # Puesto/cargo

@@ -1,6 +1,7 @@
 """Esquemas para planilla (trabajos y cargos)."""
 from extensions import ma
 from models import PayrollLocation, PayrollEntry
+from .employee_schema import FlexibleDate
 
 
 class PayrollLocationSchema(ma.SQLAlchemySchema):
@@ -23,7 +24,7 @@ class PayrollEntrySchema(ma.SQLAlchemySchema):
     location_id = ma.auto_field()
     employee_id = ma.auto_field()
     position_id = ma.auto_field()
-    period_date = ma.auto_field()
+    period_date = FlexibleDate()
     employee_name = ma.auto_field()
     entry_type = ma.auto_field()
     code = ma.auto_field()

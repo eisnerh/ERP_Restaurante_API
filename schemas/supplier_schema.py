@@ -13,3 +13,4 @@ class SupplierSchema(ma.SQLAlchemySchema):
     phone = ma.auto_field()
     contact = ma.auto_field()
     visit_day = ma.auto_field()
+    visit_schedule = ma.auto_field()

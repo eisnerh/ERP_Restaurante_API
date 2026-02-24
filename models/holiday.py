@@ -6,7 +6,7 @@ from extensions import db
 class Holiday(db.Model):
     __tablename__ = "holidays"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     date = db.Column(db.Date, nullable=False)
     name = db.Column(db.String(120), nullable=False)
     country_code = db.Column(db.String(5), default="CR")  # CR = Costa Rica

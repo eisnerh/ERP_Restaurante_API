@@ -6,7 +6,7 @@ class AppSettings(db.Model):
     """Configuración global (franchisee_id=null) o por franquiciado."""
     __tablename__ = "app_settings"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=True)  # null = global
     app_name = db.Column(db.String(120), default="ERP Raul Castaño")
     logo_url = db.Column(db.String(500))

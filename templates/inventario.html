@@ -5,10 +5,24 @@
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
 <div class="card mb-3">
   <div class="card-body">
+    <p class="text-muted small mb-2">Catálogo estándar por franquiciado. Cada ubicación tiene su propio stock.</p>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
       <button type="button" class="btn btn-sm btn-primary" onclick="openInvForm()">Nuevo ítem</button>
       <span class="text-muted small">Doble clic en una fila para editar</span>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="importExcel()">Importar Excel</button>
+      <div class="dropdown">
+        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">Copiar desde</button>
+        <ul class="dropdown-menu" id="inv-copy-from-menu">
+          {% for f in franchisees_list %}
+          {% if f.id != current_franchisee_id %}
+          <li><a class="dropdown-item" href="#" onclick="copyInventoryFrom({{ f.id }}); return false;">{{ f.name }}{% if f.code %} ({{ f.code }}){% endif %}</a></li>
+          {% endif %}
+          {% endfor %}
+          {% if not franchisees_list or franchisees_list|length < 2 %}
+          <li><span class="dropdown-item text-muted">Crea otro franquiciado primero</span></li>
+          {% endif %}
+        </ul>
+      </div>
       <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-secondary">Exportar pedidos CSV</a>
     </div>
     <div class="d-flex flex-wrap gap-2 mb-2">
@@ -45,6 +59,9 @@
     <h5 class="card-title mb-2">Alertas</h5>
     <p class="text-muted small mb-2">Items con stock &lt; 10% o cero (resaltados en rojo en la tabla)</p>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <a href="{{ url_for('web.compras') }}?openOrder=1" class="btn btn-sm btn-primary">
+        <i class="bi bi-cart-plus me-1"></i>Ir a Compras para rellenar faltantes
+      </a>
       <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-danger">Exportar lista completa (CSV)</a>
       <span class="text-muted small">o por proveedor:</span>
       <select id="export-by-supplier" class="form-select form-select-sm" style="max-width:220px" onchange="exportBySupplier(this.value)">
@@ -154,6 +171,7 @@
 
 <script>
 var API_INV = "{{ url_for('inventory.list_inventory') }}";
+var API_INV_COPY = "{{ url_for('inventory.copy_inventory_from_franchisee') }}";
 var API_INV_SUPPLIERS = "{{ url_for('inventory.list_suppliers') }}";
 var API_INV_UNITS = "{{ url_for('inventory.list_units') }}";
 var API_INV_REPORT = "{{ url_for('inventory.report_low_stock') }}";
@@ -421,6 +439,15 @@ function toggleInvGroup(id) {
     toggleSpan.textContent = isCollapsed ? '+' : '−';
   }
 }
+function copyInventoryFrom(franchiseeId) {
+  showMsg(msg, 'Copiando inventario...', 'info');
+  apiPost(API_INV_COPY, { franchisee_id: franchiseeId })
+    .then(function(r) {
+      showMsg(msg, (r.message || 'Listo.') + ' ' + (r.created || 0) + ' ítem(s) copiado(s).', 'success');
+      loadInv();
+    })
+    .catch(function(e) { showMsg(msg, 'Error: ' + (e.message || e), 'error'); });
+}
 function importExcel() {
   if (!confirm('¿Volver a cargar todo el inventario desde el Excel? Se borrará el inventario actual y se reemplazará con la hoja INVENTARIO del libro.')) return;
   fetch(API_INV + '/import-excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replace: true }) })
@@ -486,9 +513,12 @@ apiGet(API_INV + '/report?threshold=0.1').then(data => {
       const contactInfo = contactParts.length ? ' <span style="opacity:0.9; font-size:0.85em;">| ' + contactParts.join(' | ') + '</span>' : '';
       const id = 'alert-group-' + idx;
       const collapsed = idx > 0 ? ' collapsed' : '';
+      const comprasUrl = sup !== 'Sin proveedor' ? '{{ url_for("web.compras") }}?supplier=' + encodeURIComponent(sup) + '&openOrder=1' : '{{ url_for("web.compras") }}';
       html += '<div class="inv-group-alert' + collapsed + '" id="' + id + '">';
       html += '<div class="alert-group-header" onclick="toggleAlertGroup(\'' + id + '\')"><span class="alert-group-toggle">' + (idx > 0 ? '+' : '−') + '</span> ' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + ' <span style="opacity:0.9; font-weight:normal;">(' + groupItems.length + ')</span>' + contactInfo + '</div>';
-      html += '<div class="alert-group-body"><div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>Producto</th><th>Existencia</th><th>Stock</th><th>%</th><th>Pedido sugerido</th></tr></thead><tbody>';
+      html += '<div class="alert-group-body"><div class="d-flex justify-content-end mb-2">';
+      html += '<a href="' + comprasUrl + '" class="btn btn-sm btn-primary"><i class="bi bi-cart-plus me-1"></i>Ordenar a este proveedor</a></div>';
+      html += '<div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>Producto</th><th>Existencia</th><th>Stock</th><th>%</th><th>Pedido sugerido</th></tr></thead><tbody>';
       groupItems.forEach(i => {
         const pct = i.percentage != null ? i.percentage + '%' : '-';
         html += '<tr class="inv-row-low"><td>' + (i.product_name || '') + '</td><td>' + (i.existence ?? '-') + '</td><td>' + (i.stock ?? '-') + '</td><td>' + pct + '</td><td>' + (i.suggested_order ?? '-') + '</td></tr>';

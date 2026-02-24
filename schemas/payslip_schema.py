@@ -30,6 +30,7 @@ class PayslipSchema(ma.SQLAlchemySchema):
     position = ma.auto_field()
     period_start = ma.auto_field()
     period_end = ma.auto_field()
+    tipo_pago = ma.auto_field()
     salary_mes = ma.auto_field()
     salary_quincena = ma.auto_field()
     salary_semana = ma.auto_field()

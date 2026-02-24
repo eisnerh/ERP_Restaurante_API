@@ -5,7 +5,7 @@ from extensions import db
 class Franchisee(db.Model):
     __tablename__ = "franchisees"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     code = db.Column(db.String(20), unique=True)  # Código: PLAZA-SC, CENTRO, etc.
     name = db.Column(db.String(120), nullable=False)
     address = db.Column(db.String(300))

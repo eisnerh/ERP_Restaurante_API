@@ -1,4 +1,4 @@
-"""Modelo de ítem de inventario (salón y cocina)."""
+"""Modelo de ítem de inventario (salón y cocina). Catálogo estándar; stock por franquiciado."""
 from extensions import db
 
 # Tabla asociación: un ítem puede tener varios proveedores
@@ -16,7 +16,7 @@ INVENTORY_UNITS = ("KG", "GR", "CJ", "UND")
 class InventoryItem(db.Model):
     __tablename__ = "inventory_items"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     code = db.Column(db.String(50))
     area = db.Column(db.String(20), nullable=False)  # "salon" | "cocina"

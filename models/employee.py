@@ -28,7 +28,7 @@ VACACIONES_DIAS_POR_50_SEMANAS = 14
 class Employee(db.Model):
     __tablename__ = "employees"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     location_id = db.Column(db.Integer, db.ForeignKey("payroll_locations.id"), nullable=True)
     position_id = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)
@@ -39,6 +39,9 @@ class Employee(db.Model):
     fecha_ingreso = db.Column(db.Date)  # Fecha de contratación
     fecha_salida = db.Column(db.Date)  # Fecha de terminación (null si activo)
     salario_base = db.Column(db.Float)  # Salario mensual base (para aguinaldo, prestaciones)
+    salario_hora = db.Column(db.Float)  # Tarifa por hora (₡) - para empleados pagados por hora
+    horas_por_dia = db.Column(db.Float, default=8)  # Horas que debe trabajar por día (para cálculo)
+    periodo_pago = db.Column(db.String(20), default="mensual")  # mensual|quincenal|semanal|diario|por_hora
     tipo_contrato = db.Column(db.String(30), default="indefinido")  # indefinido | temporal | prueba
     jornada = db.Column(db.String(20), default="completa")  # completa | media | parcial
     vacaciones_dias_tomados = db.Column(db.Float, default=0)  # Días de vacaciones ya utilizados
@@ -62,10 +65,20 @@ class Employee(db.Model):
         weeks = _weeks_worked(self.fecha_ingreso, end)
         return (weeks / 50) * VACACIONES_DIAS_POR_50_SEMANAS
 
+    def _vacation_days_taken(self, as_of_date=None):
+        """Días tomados = suma de registros de vacaciones disfrutadas (vacation_records)."""
+        from sqlalchemy import func
+        from models import VacationRecord
+        q = VacationRecord.query.filter_by(employee_id=self.id)
+        if as_of_date:
+            q = q.filter(VacationRecord.fecha_desde <= as_of_date)
+        total = q.with_entities(func.coalesce(func.sum(VacationRecord.dias_tomados), 0)).scalar()
+        return float(total or 0)
+
     def vacation_days(self, as_of_date=None):
-        """Días de vacaciones disponibles = ganados - tomados."""
+        """Días de vacaciones disponibles = ganados - tomados (solo se deducen con registros)."""
         earned = self.vacation_days_earned(as_of_date)
-        taken = self.vacaciones_dias_tomados or 0
+        taken = self._vacation_days_taken(as_of_date)
         return max(0, round(earned - taken, 1))
 
     def vacation_days_simple(self, as_of_date=None):

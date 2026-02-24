@@ -14,6 +14,7 @@ from .deduction_type_schema import DeductionTypeSchema
 from .employee_schema import EmployeeSchema
 from .vacation_record_schema import VacationRecordSchema
 from .payslip_schema import PayslipSchema, PayslipLineSchema
+from .payment_record_schema import PaymentRecordSchema
 from .unit_schema import UnitSchema
 
 __all__ = [
@@ -38,5 +39,6 @@ __all__ = [
     "VacationRecordSchema",
     "PayslipSchema",
     "PayslipLineSchema",
+    "PaymentRecordSchema",
     "UnitSchema",
 ]

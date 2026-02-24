@@ -298,14 +298,14 @@ function removeItemRow(btn) {
   if (rows.length > 1) btn.closest('.order-item-row').remove();
 }
 
-function openOrderForm() {
+function openOrderForm(supplierIdToSelect) {
   document.getElementById('modal-order-title').textContent = 'Nueva orden de compra';
   document.getElementById('order-id').value = '';
   var today = new Date().toISOString().split('T')[0];
   document.getElementById('order-date').value = today;
   document.getElementById('order-notes').value = '';
   loadSuppliers().then(() => {
-    document.getElementById('order-supplier').value = '';
+    document.getElementById('order-supplier').value = supplierIdToSelect || '';
     var container = document.getElementById('order-items-container');
     container.innerHTML = '';
     var qp = document.getElementById('quick-add-panel');
@@ -314,6 +314,10 @@ function openOrderForm() {
     if (bq) bq.innerHTML = '<i class="bi bi-plus-circle"></i> Añadir con un clic';
     addItemRow();
     modalShow('modal-order');
+    if (supplierIdToSelect) {
+      updateOrderProductsDatalist();
+      setTimeout(function() { loadLowStockItems(); }, 300);
+    }
   });
 }
 
@@ -416,7 +420,31 @@ document.getElementById('order-items-container').addEventListener('change', func
   }
 });
 
-loadSuppliers();
+loadSuppliers().then(function() {
+  var params = new URLSearchParams(window.location.search);
+  var supplierName = params.get('supplier');
+  var openOrder = params.get('openOrder');
+  if (openOrder === '1') {
+    var supplierId = null;
+    if (supplierName) {
+      var name = supplierName.trim();
+      var supplier = suppliersList.find(function(s) {
+        var sn = (s.name || '').trim();
+        return sn === name || sn.toLowerCase() === name.toLowerCase();
+      });
+      if (!supplier && name.indexOf(',') >= 0) {
+        var first = name.split(',')[0].trim();
+        supplier = suppliersList.find(function(s) {
+          var sn = (s.name || '').trim();
+          return sn === first || sn.toLowerCase() === first.toLowerCase();
+        });
+      }
+      if (supplier) supplierId = supplier.id;
+    }
+    openOrderForm(supplierId);
+    history.replaceState({}, document.title, window.location.pathname);
+  }
+});
 loadOrders();
 </script>
 {% endblock %}

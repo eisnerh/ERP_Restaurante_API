@@ -5,7 +5,7 @@ from extensions import db
 class Client(db.Model):
     __tablename__ = "clients"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     tax_id = db.Column(db.String(50))  # Cédula, RUC, NIF

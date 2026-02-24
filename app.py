@@ -38,30 +38,61 @@ def create_app(config_class=Config):
     app.register_blueprint(expenses_bp)
     app.register_blueprint(holidays_bp)
 
+    @app.before_request
+    def ensure_default_franchisee():
+        """Asegura que al inicio de cada petición haya un franquiciado por defecto en sesión."""
+        from flask import request, session, redirect
+        from urllib.parse import urlencode
+        from utils.franchisee import get_or_default_franchisee_id, set_current_franchisee_id
+        # Permitir cambiar franquiciado por query ?franchisee_id=1 (más fiable que fetch)
+        q_fid = request.args.get("franchisee_id", type=int)
+        if q_fid is not None:
+            from models import Franchisee
+            f = Franchisee.query.filter_by(id=q_fid, active=True).first()
+            if f:
+                set_current_franchisee_id(f.id)
+                session.permanent = True
+                # Redirigir a la misma ruta sin franchisee_id para limpiar la URL
+                args = {k: v for k, v in request.args.items() if k != "franchisee_id"}
+                target = request.path + ("?" + urlencode(args) if args else "")
+                return redirect(target)
+        get_or_default_franchisee_id()
+
     @app.context_processor
     def inject_settings():
         """Inyecta la configuración y franquiciado actual en todas las plantillas."""
         from utils.franchisee import get_or_default_franchisee_id
         from models import AppSettings, Franchisee
+        fid = None
+        current = None
+        franchisees = []
         try:
             fid = get_or_default_franchisee_id()
-            s = AppSettings.get(franchisee_id=fid)
-            franchisees = Franchisee.query.filter_by(active=True).order_by(Franchisee.name).all()
             current = db.session.get(Franchisee, fid) if fid else None
-            return {
-                "app_name": s.app_name or "ERP Raul Castaño",
-                "app_logo_url": s.logo_url or "",
-                "app_favicon_url": s.favicon_url or "",
-                "app_nav_icon": s.nav_icon or "",
-                "current_franchisee_id": fid,
-                "current_franchisee": current,
-                "franchisees_list": franchisees,
-            }
         except Exception:
-            return {
-                "app_name": "ERP Raul Castaño", "app_logo_url": "", "app_favicon_url": "", "app_nav_icon": "",
-                "current_franchisee_id": None, "current_franchisee": None, "franchisees_list": [],
-            }
+            pass
+        try:
+            franchisees = Franchisee.query.filter_by(active=True).order_by(Franchisee.name).all()
+        except Exception:
+            pass
+        try:
+            s = AppSettings.get(franchisee_id=fid) if fid else AppSettings.get(franchisee_id=None)
+            app_name = s.app_name or "ERP Raul Castaño"
+            app_logo_url = s.logo_url or ""
+            app_favicon_url = s.favicon_url or ""
+            app_nav_icon = s.nav_icon or ""
+        except Exception:
+            app_name = "ERP Raul Castaño"
+            app_logo_url = app_favicon_url = app_nav_icon = ""
+        return {
+            "app_name": app_name,
+            "app_logo_url": app_logo_url,
+            "app_favicon_url": app_favicon_url,
+            "app_nav_icon": app_nav_icon,
+            "current_franchisee_id": fid,
+            "current_franchisee": current,
+            "franchisees_list": franchisees,
+        }
 
     @app.route("/api")
     def api_index():
@@ -114,22 +145,21 @@ def create_app(config_class=Config):
             sync_holidays(db.session, years=years)
         except Exception:
             pass
-        # Tipos de deducción CR por defecto (si no existen)
+        # Tipos de deducción CR por defecto (si no existen) - estándar global
         try:
             from models import DeductionType
-            for fid in [f.id for f in Franchisee.query.all()]:
-                defaults = [
-                    ("CCSS Trabajador", "Seguro social - aporte trabajador", False, False, 1),
-                    ("CCSS Patrono", "Seguro social - aporte patrono", False, False, 2),
-                    ("Día libre intercambiado", "Horas negativas = negociables", True, True, 3),
-                    ("Incapacidad", "Deducción por incapacidad", False, False, 4),
-                ]
-                for name, desc, can_neg, is_hrs, order in defaults:
-                    if not DeductionType.query.filter_by(franchisee_id=fid, name=name).first():
-                        db.session.add(DeductionType(
-                            franchisee_id=fid, name=name, description=desc,
-                            can_be_negative=can_neg, is_hours_based=is_hrs, display_order=order
-                        ))
+            defaults = [
+                ("CCSS Trabajador", "Seguro social - aporte trabajador", False, False, 1),
+                ("CCSS Patrono", "Seguro social - aporte patrono", False, False, 2),
+                ("Día libre intercambiado", "Horas negativas = negociables", True, True, 3),
+                ("Incapacidad", "Deducción por incapacidad", False, False, 4),
+            ]
+            for name, desc, can_neg, is_hrs, order in defaults:
+                if not DeductionType.query.filter_by(name=name).first():
+                    db.session.add(DeductionType(
+                        name=name, description=desc,
+                        can_be_negative=can_neg, is_hours_based=is_hrs, display_order=order
+                    ))
             db.session.commit()
         except Exception:
             db.session.rollback()

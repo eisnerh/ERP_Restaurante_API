@@ -258,6 +258,7 @@ def create_supplier():
         phone=(data.get("phone") or "").strip() or None,
         contact=(data.get("contact") or "").strip() or None,
         visit_day=(data.get("visit_day") or "").strip() or None,
+        visit_schedule=(data.get("visit_schedule") or "").strip() or None,
     )
     db.session.add(supplier)
     db.session.commit()
@@ -274,7 +275,7 @@ def export_suppliers():
         return jsonify(suppliers_schema.dump(suppliers))
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["ID", "Nombre", "Teléfono", "Contacto directo", "Día visita"])
+    writer.writerow(["ID", "Nombre", "Teléfono", "Contacto directo", "Día visita", "Rol visita"])
     for s in suppliers:
         writer.writerow([
             s.id,
@@ -282,6 +283,7 @@ def export_suppliers():
             getattr(s, "phone", None) or "",
             getattr(s, "contact", None) or "",
             getattr(s, "visit_day", None) or "",
+            getattr(s, "visit_schedule", None) or "",
         ])
     buf.seek(0)
     body = "\ufeff" + buf.getvalue()
@@ -290,6 +292,38 @@ def export_suppliers():
         mimetype="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=proveedores.csv"},
     )
+
+
+@inventory_bp.route("/suppliers/copy-from-franchisee", methods=["POST"])
+def copy_suppliers_from_franchisee():
+    """
+    Copia proveedores desde otro franquiciado. Body: { franchisee_id: 1 }.
+    Los mismos nombres; cada franquiciado edita su teléfono, contacto, día de visita.
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    source_fid = data.get("franchisee_id")
+    try:
+        source_fid = int(source_fid) if source_fid is not None else None
+    except (TypeError, ValueError):
+        source_fid = None
+    if not source_fid:
+        return jsonify({"error": "franchisee_id es obligatorio"}), 400
+    if source_fid == fid:
+        return jsonify({"error": "No puedes copiar desde el mismo franquiciado"}), 400
+    source_suppliers = Supplier.query.filter_by(franchisee_id=source_fid).order_by(Supplier.name).all()
+    created = 0
+    for s in source_suppliers:
+        if not Supplier.query.filter_by(franchisee_id=fid, name=s.name).first():
+            db.session.add(Supplier(
+                franchisee_id=fid, name=s.name,
+                phone=s.phone, contact=s.contact, visit_day=s.visit_day, visit_schedule=s.visit_schedule,
+            ))
+            created += 1
+    db.session.commit()
+    return jsonify({"message": f"Copiados {created} proveedores. Total: {len(source_suppliers)}.", "created": created})
 
 
 @inventory_bp.route("/suppliers/reload-from-excel", methods=["POST"])
@@ -480,6 +514,8 @@ def update_supplier(supplier_id):
         supplier.contact = (data.get("contact") or "").strip() or None
     if "visit_day" in data:
         supplier.visit_day = (data.get("visit_day") or "").strip() or None
+    if "visit_schedule" in data:
+        supplier.visit_schedule = (data.get("visit_schedule") or "").strip() or None
     InventoryItem.query.filter_by(franchisee_id=fid, supplier=old_name).update({"supplier": new_name})
     db.session.commit()
     return jsonify(supplier_schema.dump(supplier))
@@ -614,6 +650,55 @@ def _get_or_create_supplier_id(name, franchisee_id):
     db.session.add(s)
     db.session.flush()
     return s.id
+
+
+@inventory_bp.route("/copy-from-franchisee", methods=["POST"])
+def copy_inventory_from_franchisee():
+    """
+    Copia el catálogo de inventario desde otro franquiciado. Body: { franchisee_id: 1 }.
+    Mismos productos; stock en 0 para que cada ubicación registre el suyo.
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    source_fid = data.get("franchisee_id")
+    try:
+        source_fid = int(source_fid) if source_fid is not None else None
+    except (TypeError, ValueError):
+        source_fid = None
+    if not source_fid:
+        return jsonify({"error": "franchisee_id es obligatorio"}), 400
+    if source_fid == fid:
+        return jsonify({"error": "No puedes copiar desde el mismo franquiciado"}), 400
+    source_items = InventoryItem.query.filter_by(franchisee_id=source_fid).all()
+    created = 0
+    for it in source_items:
+        if InventoryItem.query.filter_by(franchisee_id=fid, product_name=it.product_name, area=it.area).first():
+            continue
+        supplier_ids = []
+        for s in it.suppliers:
+            target_s = Supplier.query.filter_by(franchisee_id=fid, name=s.name).first()
+            if target_s and target_s.id not in supplier_ids:
+                supplier_ids.append(target_s.id)
+            elif not target_s:
+                new_s = Supplier(franchisee_id=fid, name=s.name, phone=s.phone, contact=s.contact, visit_day=s.visit_day, visit_schedule=s.visit_schedule)
+                db.session.add(new_s)
+                db.session.flush()
+                supplier_ids.append(new_s.id)
+        new_item = InventoryItem(
+            franchisee_id=fid,
+            code=it.code, area=it.area, product_name=it.product_name,
+            unit=it.unit or "UND",
+            existence=0, stock=0,
+            order_quantity=it.order_quantity, supplier=it.supplier, responsible=it.responsible,
+        )
+        db.session.add(new_item)
+        db.session.flush()
+        _set_item_suppliers(new_item, supplier_ids, fid)
+        created += 1
+    db.session.commit()
+    return jsonify({"message": f"Copiados {created} ítems. Total en origen: {len(source_items)}.", "created": created})
 
 
 @inventory_bp.route("/import-excel", methods=["POST"])

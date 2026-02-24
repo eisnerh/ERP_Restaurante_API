@@ -22,14 +22,20 @@ def clear_current_franchisee():
 
 def get_or_default_franchisee_id():
     """
-    Obtiene el franquiciado actual o el primero activo como predeterminado.
+    Obtiene el franquiciado actual o el predeterminado (Franquiciado Principal o primero activo).
     Retorna None si no hay franquiciados.
     """
     fid = get_current_franchisee_id()
     if fid is not None:
         return fid
     from models import Franchisee
-    first = Franchisee.query.filter_by(active=True).first()
+    # Preferir "Franquiciado Principal" por nombre
+    principal = Franchisee.query.filter_by(active=True, name="Franquiciado Principal").first()
+    if principal:
+        set_current_franchisee_id(principal.id)
+        return principal.id
+    # Si no existe, usar el primero activo
+    first = Franchisee.query.filter_by(active=True).order_by(Franchisee.name).first()
     if first:
         set_current_franchisee_id(first.id)
         return first.id

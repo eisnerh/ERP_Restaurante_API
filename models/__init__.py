@@ -18,6 +18,7 @@ from .employee import Employee
 from .vacation_record import VacationRecord
 from .payroll_entry import PayrollEntry
 from .payslip import Payslip, PayslipLine
+from .payment_record import PaymentRecord
 from .unit import Unit
 from .app_settings import AppSettings
 from .holiday import Holiday
@@ -29,6 +30,7 @@ __all__ = [
     "Client", "PurchaseOrder", "PurchaseOrderItem",
     "PayrollLocation", "Position", "DeductionType", "Employee", "VacationRecord", "PayrollEntry",
     "Payslip", "PayslipLine",
+    "PaymentRecord",
     "Unit",
     "AppSettings",
     "Holiday",

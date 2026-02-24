@@ -5,7 +5,7 @@ from extensions import db
 class Dish(db.Model):
     __tablename__ = "dishes"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(300))
     price = db.Column(db.Float, nullable=False)

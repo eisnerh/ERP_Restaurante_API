@@ -21,6 +21,16 @@ body { background: var(--rc-bg); color: var(--rc-text); }
 .navbar .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
 .navbar-brand span { color: #fff !important; }
 .navbar .btn-link { color: #fff !important; }
+#navbar-franchisee-select {
+  color: rgba(255,255,255,0.95) !important;
+  background: rgba(255,255,255,0.15) !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+#navbar-franchisee-select:hover, #navbar-franchisee-select:focus {
+  background: rgba(255,255,255,0.25) !important;
+}
+#navbar-franchisee-select option { color: #333; background: #fff; }
 
 /* Menú hamburguesa - offcanvas */
 #menuOffcanvas.offcanvas {
@@ -40,7 +50,7 @@ body { background: var(--rc-bg); color: var(--rc-text); }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.35);
-  z-index: 1050;
+  z-index: 9999;
   align-items: center;
   justify-content: center;
   padding: 1rem;

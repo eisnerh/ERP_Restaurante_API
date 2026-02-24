@@ -6,7 +6,7 @@ from extensions import db
 class InventoryAlert(db.Model):
     __tablename__ = "inventory_alerts"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     franchisee_id = db.Column(db.Integer, db.ForeignKey("franchisees.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     threshold = db.Column(db.Float, nullable=False)   # ej. 0.1 = 10%
