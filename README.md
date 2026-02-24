@@ -1,0 +1,65 @@
+# ERP Raul Castaño
+
+Sistema de gestión integral para **franquicias de restaurantes**. Permite administrar múltiples sucursales (franquiciados) desde una sola aplicación, cada una con su propio inventario, clientes, compras y planilla.
+
+---
+
+## ¿Qué hace este programa?
+
+**ERP Raul Castaño** es un ERP (Enterprise Resource Planning) desarrollado en Flask que cubre las operaciones diarias de un restaurante o cadena de restaurantes:
+
+| Módulo | Descripción |
+|--------|-------------|
+| **Menú** | Categorías y platos con precios |
+| **Mesas** | Control de mesas y ocupación |
+| **Pedidos** | Órdenes por mesa, estados (pendiente, preparando, servido, pagado) |
+| **Inventario** | Productos de salón y cocina, existencias, stock, alertas de faltantes |
+| **Proveedores** | Gestión de proveedores e importación desde Excel |
+| **Clientes** | Base de datos de clientes |
+| **Compras** | Órdenes de compra a proveedores |
+| **Planilla** | Ubicaciones, empleados, desgloses de pago y generación de PDF para firma |
+| **Franquiciados** | Múltiples sucursales con datos separados por franquiciado |
+| **Configuración** | Nombre del ERP, logo, favicon (por franquiciado) |
+
+---
+
+## Características principales
+
+- **Multi-franquiciado**: Cada sucursal tiene su inventario, clientes, compras y planilla independientes.
+- **Interfaz web**: CRUD completo para todas las secciones.
+- **API REST**: Endpoints JSON para integración con otros sistemas.
+- **Importación Excel**: Inventario y planilla desde archivos Excel.
+- **Reportes PDF**: Desgloses de pago para imprimir y firmar.
+- **Alertas de inventario**: Notificaciones cuando el stock está bajo.
+
+---
+
+## Tecnologías
+
+- **Backend**: Python, Flask, SQLAlchemy
+- **Base de datos**: PostgreSQL
+- **Frontend**: HTML, Bootstrap, JavaScript
+
+---
+
+## Inicio rápido
+
+```bash
+python -m venv venv
+venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+# Copiar .env.example a .env y configurar DATABASE_URL (PostgreSQL)
+python scripts/init_db.py
+python scripts/import_inventory_excel.py --franchisee-id 1   # Opcional
+python app.py
+```
+
+**Interfaz:** http://127.0.0.1:5000
+
+---
+
+## Documentación
+
+- **[INSTALACION.md](INSTALACION.md)** — Guía de instalación para el cliente
+- **[SETUP.md](SETUP.md)** — Configuración para desarrollo
+- **[README_API.md](README_API.md)** — Documentación técnica de la API (endpoints, ejemplos)
