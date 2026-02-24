@@ -36,9 +36,10 @@ wheels/
 .env.local
 .env.*.local
 
-# Secretos
+# Secretos y certificados
 *.pem
 *.key
+certs/
 
 # IDE / Editor
 .idea/

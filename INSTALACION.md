@@ -192,3 +192,27 @@ http://192.168.1.100:5000/
 *(Reemplaza por la IP real del equipo donde está instalado)*
 
 Si el firewall de Windows bloquea, permite Python en el firewall o abre el puerto 5000.
+
+---
+
+## Quitar el aviso "Conexión no segura" (HTTPS local)
+
+El navegador muestra "No seguro" en `http://localhost` porque usa HTTP. Para usar HTTPS sin avisos:
+
+### Opción A: Certificados con mkcert (recomendado, sin aviso)
+
+1. Instala mkcert: [https://github.com/FiloSottile/mkcert](https://github.com/FiloSottile/mkcert)  
+   - Con Chocolatey: `choco install mkcert`
+2. Ejecuta una vez: `mkcert -install`
+3. Genera certificados: `python scripts/setup_https_local.py`
+4. Inicia con HTTPS: `set USE_HTTPS_CERT=1 && python app.py`
+5. Accede a **https://localhost:5000**
+
+### Opción B: Certificado temporal (adhoc)
+
+```powershell
+set USE_HTTPS=1
+python app.py
+```
+
+Accede a **https://localhost:5000**. La primera vez el navegador pedirá aceptar el certificado (clic en "Avanzado" → "Continuar a localhost").
