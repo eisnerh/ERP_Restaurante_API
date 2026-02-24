@@ -139,6 +139,7 @@
         <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
           <button type="button" class="btn btn-primary" onclick="generatePayslipsFromDb()"><i class="bi bi-database me-1"></i>Generar desde BD</button>
           <button type="button" class="btn btn-outline-secondary" onclick="openImportPayslipModal()"><i class="bi bi-upload me-1"></i>Importar Excel</button>
+          <button type="button" class="btn btn-outline-primary" onclick="printBatchPayslipsFromDesgloses()"><i class="bi bi-printer me-1"></i>Imprimir desgloses</button>
           <div>
             <label class="form-label small mb-0">Ubicación</label>
             <select id="filter-ps-loc" class="form-select form-select-sm" style="min-width:180px;" onchange="loadPayslips()"></select>
@@ -166,10 +167,22 @@
         <p class="text-muted small mb-3">Registra los pagos realizados a empleados (mensual, quincenal, semanal o diario).</p>
         <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
           <button type="button" class="btn btn-primary" onclick="openPaymentForm()"><i class="bi bi-plus-lg me-1"></i>Registrar pago</button>
+          <button type="button" class="btn btn-outline-primary" onclick="printBatchPayslips()"><i class="bi bi-printer me-1"></i>Imprimir desgloses</button>
           <div>
             <label class="form-label small mb-0">Empleado</label>
             <select id="filter-pay-emp" class="form-select form-select-sm" style="min-width:180px;" onchange="loadPayments()">
               <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label small mb-0">Tipo período</label>
+            <select id="filter-pay-periodo" class="form-select form-select-sm" style="min-width:140px;" onchange="loadPayments()">
+              <option value="">Todos</option>
+              <option value="mensual">Mensual</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="semanal">Semanal</option>
+              <option value="diario">Días</option>
+              <option value="por_hora">Horas</option>
             </select>
           </div>
           <div>
@@ -1384,12 +1397,14 @@ function delEntry(id) {
 
 function loadPayments() {
   const empId = document.getElementById('filter-pay-emp') ? document.getElementById('filter-pay-emp').value : '';
+  const periodo = document.getElementById('filter-pay-periodo') ? document.getElementById('filter-pay-periodo').value : '';
   const from_ = document.getElementById('filter-pay-from') ? document.getElementById('filter-pay-from').value : '';
   const to_ = document.getElementById('filter-pay-to') ? document.getElementById('filter-pay-to').value : '';
   document.getElementById('pay-loading').style.display = 'block';
   document.getElementById('pay-content').style.display = 'none';
   let url = API_PAY + '?';
   if (empId) url += 'employee_id=' + empId + '&';
+  if (periodo) url += 'periodo_tipo=' + encodeURIComponent(periodo) + '&';
   if (from_) url += 'from_date=' + from_ + '&';
   if (to_) url += 'to_date=' + to_;
   apiGet(url)
@@ -1397,26 +1412,54 @@ function loadPayments() {
       document.getElementById('pay-loading').style.display = 'none';
       document.getElementById('pay-content').style.display = 'block';
       const list = data || [];
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover table-sm"><thead><tr><th>Fecha</th><th>Empleado</th><th>Período</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      const tipoLabels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover table-sm"><thead><tr><th>Fecha</th><th>Empleado</th><th>Tipo período</th><th>Período</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(p => {
-        let period = (p.periodo_tipo || '') + (p.period_start ? ' ' + p.period_start : '');
+        const tipoPago = tipoLabels[p.periodo_tipo] || p.periodo_tipo || 'Mensual';
+        let period = (p.period_start ? p.period_start.split('T')[0] : '') + (p.period_end ? ' a ' + p.period_end.split('T')[0] : '');
         if (p.periodo_tipo === 'por_hora' && p.hourly_rate != null) {
           let det = (p.hours_worked || 0) + 'h ord';
           if (p.hours_extra > 0) det += ' + ' + p.hours_extra + 'h extra' + (p.hours_extra_festivo ? ' (festivo)' : '');
-          period += ' (' + det + ' x ' + Number(p.hourly_rate).toLocaleString() + ')';
+          period += (period ? ' ' : '') + '(' + det + ' x ' + Number(p.hourly_rate).toLocaleString() + ')';
         } else if (p.periodo_tipo === 'diario' && p.days_worked != null) {
-          period += ' (' + p.days_worked + ' d\u00edas' + (p.include_sundays ? ', con domingos' : '') + ')';
+          period += (period ? ' ' : '') + '(' + p.days_worked + ' d\u00edas' + (p.include_sundays ? ', con domingos' : '') + ')';
         }
-        if (p.hours_extra != null && p.hours_extra > 0) {
-          period += ' +' + p.hours_extra + 'h extra' + (p.hours_extra_festivo ? ' (festivo)' : '');
+        if (p.hours_extra != null && p.hours_extra > 0 && p.periodo_tipo !== 'por_hora') {
+          period += (period ? ' ' : '') + '+' + p.hours_extra + 'h extra' + (p.hours_extra_festivo ? ' (festivo)' : '');
         }
         const amt = Number(p.amount || 0).toLocaleString();
-        html += '<tr><td>' + (p.payment_date ? p.payment_date.split('T')[0] : '-') + '</td><td>' + (p.employee_name || '-') + '</td><td>' + period + '</td><td class="text-end">\u20A1 ' + amt + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editPayment(' + p.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delPayment(' + p.id + ')">Eliminar</button></td></tr>';
+        const basePay = (API_PAY && API_PAY.endsWith('/')) ? API_PAY.slice(0, -1) : (API_PAY || '/api/payroll/payments');
+        const pdfBtn = '<a href="' + basePay + '/' + p.id + '/payslip-pdf" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir desglose"><i class="bi bi-file-pdf"></i></a>';
+        html += '<tr><td>' + (p.payment_date ? p.payment_date.split('T')[0] : '-') + '</td><td>' + (p.employee_name || '-') + '</td><td><span class="badge bg-secondary">' + tipoPago + '</span></td><td>' + (period || '-') + '</td><td class="text-end">\u20A1 ' + amt + '</td><td class="text-end">' + pdfBtn + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="editPayment(' + p.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delPayment(' + p.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('pay-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay pagos registrados.</p>';
     })
     .catch(e => { document.getElementById('pay-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
+}
+
+function printBatchPayslips() {
+  const empId = (document.getElementById('filter-pay-emp') || {}).value;
+  const periodo = (document.getElementById('filter-pay-periodo') || {}).value;
+  const from_ = (document.getElementById('filter-pay-from') || {}).value;
+  const to_ = (document.getElementById('filter-pay-to') || {}).value;
+  let url = '/api/payroll/payslips/batch-pdf?';
+  if (empId) url += 'employee_id=' + empId + '&';
+  if (periodo) url += 'periodo_tipo=' + encodeURIComponent(periodo) + '&';
+  if (from_) url += 'from_date=' + from_ + '&';
+  if (to_) url += 'to_date=' + to_;
+  window.open(url, '_blank');
+}
+
+function printBatchPayslipsFromDesgloses() {
+  const loc = (document.getElementById('filter-ps-loc') || {}).value;
+  const start = (document.getElementById('filter-ps-start') || {}).value;
+  const end = (document.getElementById('filter-ps-end') || {}).value;
+  let url = '/api/payroll/payslips/batch-pdf?';
+  if (loc) url += 'location_name=' + encodeURIComponent(loc) + '&';
+  if (start) url += 'period_start=' + start + '&';
+  if (end) url += 'period_end=' + end;
+  window.open(url, '_blank');
 }
 
 function togglePaySections() {
@@ -1634,14 +1677,14 @@ function savePayment(e) {
   }
   const basePay = API_PAY.endsWith('/') ? API_PAY.slice(0, -1) : API_PAY;
   const p = id ? apiPut(basePay + '/' + id, data) : apiPost(API_PAY, data);
-  p.then(() => { modalHide('modal-payment'); showMsg('Pago registrado.', 'success'); loadPayments(); })
+  p.then(() => { modalHide('modal-payment'); showMsg('Pago registrado.', 'success'); loadPayments(); loadPayslips(); })
     .catch(err => showMsg(err.message, 'error'));
 }
 
 function delPayment(id) {
   if (!confirm('¿Eliminar este registro de pago?')) return;
   apiDelete((API_PAY.endsWith('/') ? API_PAY.slice(0, -1) : API_PAY) + '/' + id)
-    .then(() => { showMsg('Pago eliminado.', 'success'); loadPayments(); })
+    .then(() => { showMsg('Pago eliminado.', 'success'); loadPayments(); loadPayslips(); })
     .catch(err => showMsg(err.message, 'error'));
 }
 

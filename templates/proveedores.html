@@ -144,7 +144,7 @@ function loadSuppliers() {
     .catch(e => { document.getElementById('suppliers-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
 }
 var VISIT_DAY_OPTIONS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-||||||||||2333333333333333333333333333333333333333qq||function getVisitDayValue() {
+function getVisitDayValue() {
   var sel = document.getElementById('supplier-visit-day-select');
   return sel ? (sel.value || null) : null;
 }

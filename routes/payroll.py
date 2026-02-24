@@ -1040,7 +1040,18 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
                     numero_cuenta = ge.numero_cuenta
                     break
 
-        total_asig = salario_mes or 0
+        tipo_pago = (emp.periodo_pago if emp and emp.periodo_pago else None) or "mensual"
+        if tipo_pago == "quincenal" and salary_quincena:
+            base_salario_periodo = salary_quincena
+        elif tipo_pago == "semanal" and salary_semana:
+            base_salario_periodo = salary_semana * 2
+        elif tipo_pago == "diario" and salary_dia:
+            base_salario_periodo = salary_dia * 13
+        elif tipo_pago == "por_hora" and salary_hora_ord:
+            base_salario_periodo = salary_hora_ord * 104
+        else:
+            base_salario_periodo = salario_mes or 0
+        total_asig = base_salario_periodo
         total_ded = 0
         lines = []
 
@@ -1086,19 +1097,18 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
                 if dt_ccss and dt_ccss.rate_pct is not None:
                     ccss_pct = dt_ccss.rate_pct
             if ccss_pct is not None:
-                base_ccss = salary_quincena if salary_quincena else salario_mes
+                base_ccss = base_salario_periodo
                 ccss_amt = round(base_ccss * ccss_pct, 2)
                 if ccss_amt > 0:
                     lines.append({"line_type": "deduccion", "concept": "CCSS Trabajador", "amount": -ccss_amt})
                     total_ded += ccss_amt
 
         if salario_mes and not any("Salario base" in str(l.get("concept", "")) for l in lines):
-            amt = salary_quincena if salary_quincena else salario_mes
+            amt = base_salario_periodo
             lines.insert(0, {"line_type": "asignacion", "concept": "Salario base", "amount": amt})
 
         total_depositado = total_asig - total_ded
 
-        tipo_pago = (emp.periodo_pago if emp and emp.periodo_pago else None) or "mensual"
         ps = Payslip(
             franchisee_id=fid,
             employee_id=emp.id if emp else None,
@@ -1268,10 +1278,10 @@ def list_payslips():
     if employee_name:
         query = query.filter(Payslip.employee_name.ilike(f"%{employee_name}%"))
     if period_start:
-        query = query.filter(Payslip.period_end >= period_start)
+        query = query.filter(Payslip.period_start >= period_start)
     if period_end:
-        query = query.filter(Payslip.period_start <= period_end)
-    payslips = query.order_by(Payslip.period_start.desc(), Payslip.employee_name).limit(200).all()
+        query = query.filter(Payslip.period_end <= period_end)
+    payslips = query.order_by(Payslip.period_start.asc(), Payslip.period_end.asc(), Payslip.employee_name).limit(200).all()
     return jsonify(payslips_schema.dump(payslips))
 
 
@@ -1283,6 +1293,44 @@ def get_payslip(payslip_id):
     if not payslip:
         return jsonify({"error": "Desglose no encontrado"}), 404
     return jsonify(payslip_schema.dump(payslip))
+
+
+@payroll_bp.route("/payslips/batch-pdf", methods=["GET"])
+def payslips_batch_pdf():
+    """
+    Genera un PDF con todos los desgloses (uno por página).
+    Query opcionales: employee_id=, from_date=, to_date=, periodo_tipo=, location_name=.
+    Sin filtros: imprime todos los desgloses del franquiciado.
+    """
+    from flask import Response
+    from utils.payslip_pdf import build_batch_payslip_pdf
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    query = Payslip.query.filter_by(franchisee_id=fid)
+    employee_id = request.args.get("employee_id", type=int)
+    from_date = _parse_date_param(request.args.get("from_date")) or _parse_date_param(request.args.get("period_start"))
+    to_date = _parse_date_param(request.args.get("to_date")) or _parse_date_param(request.args.get("period_end"))
+    periodo_tipo = request.args.get("periodo_tipo", "").strip()
+    location_name = request.args.get("location_name", "").strip()
+    if employee_id:
+        query = query.filter(Payslip.employee_id == employee_id)
+    if from_date:
+        query = query.filter(Payslip.period_start >= from_date)
+    if to_date:
+        query = query.filter(Payslip.period_end <= to_date)
+    if periodo_tipo and periodo_tipo in ("mensual", "quincenal", "semanal", "diario", "por_hora"):
+        query = query.filter(Payslip.tipo_pago == periodo_tipo)
+    if location_name:
+        query = query.filter(Payslip.location_name.ilike(f"%{location_name}%"))
+    payslips = query.order_by(Payslip.period_start.asc(), Payslip.period_end.asc(), Payslip.employee_name).limit(500).all()
+    pdf_bytes = build_batch_payslip_pdf(payslips)
+    filename = "desgloses_planilla.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 @payroll_bp.route("/payslips/<int:payslip_id>/pdf", methods=["GET"])
@@ -1398,17 +1446,20 @@ def import_payslip_excel():
 # ---------- Registro de pagos ----------
 @payroll_bp.route("/payments", methods=["GET"])
 def list_payments():
-    """Lista registros de pago del franquiciado. Query: employee_id=, location_id=, from_date=, to_date=."""
+    """Lista registros de pago del franquiciado. Query: employee_id=, location_id=, from_date=, to_date=, periodo_tipo=."""
     fid = get_or_default_franchisee_id()
     if not fid:
         return jsonify([])
     query = PaymentRecord.query.filter_by(franchisee_id=fid)
     employee_id = request.args.get("employee_id", type=int)
     location_id = request.args.get("location_id", type=int)
+    periodo_tipo = request.args.get("periodo_tipo", "").strip()
     from_date = _parse_date_param(request.args.get("from_date"))
     to_date = _parse_date_param(request.args.get("to_date"))
     if employee_id:
         query = query.filter_by(employee_id=employee_id)
+    if periodo_tipo and periodo_tipo in ("mensual", "quincenal", "semanal", "diario", "por_hora"):
+        query = query.filter_by(periodo_tipo=periodo_tipo)
     if location_id:
         query = query.filter_by(location_id=location_id)
     if from_date:
@@ -1541,3 +1592,65 @@ def payment_detail(pay_id):
     db.session.delete(rec)
     db.session.commit()
     return "", 204
+
+
+@payroll_bp.route("/payments/<int:pay_id>/payslip-pdf", methods=["GET"])
+def payment_payslip_pdf(pay_id):
+    """
+    Genera el PDF del desglose asociado a un registro de pago.
+    Si el pago tiene payslip_id, usa ese desglose. Si no, busca por empleado (id o nombre) y período.
+    """
+    from flask import Response
+    from utils.payslip_pdf import build_payslip_pdf
+    fid = get_or_default_franchisee_id()
+    rec = PaymentRecord.query.filter_by(id=pay_id, franchisee_id=fid).first() if fid else None
+    if not rec:
+        return jsonify({"error": "Registro de pago no encontrado"}), 404
+    payslip = None
+    if rec.payslip_id:
+        payslip = Payslip.query.filter_by(id=rec.payslip_id, franchisee_id=fid).first()
+    emp_name = (rec.employee.name or "").strip() if rec.employee else ""
+    if not payslip:
+        # Buscar por employee_id O por employee_name (payslips importados pueden tener employee_id null)
+        emp_filter = db.or_(
+            Payslip.employee_id == rec.employee_id,
+            (Payslip.employee_id.is_(None)) & (Payslip.employee_name.ilike(emp_name)) if emp_name else (Payslip.id < 0),
+        ) if (rec.employee_id or emp_name) else (Payslip.id < 0)
+        q = Payslip.query.filter(Payslip.franchisee_id == fid, emp_filter)
+        if rec.period_start:
+            q = q.filter(Payslip.period_end >= rec.period_start)
+        if rec.period_end:
+            q = q.filter(Payslip.period_start <= rec.period_end)
+        if not rec.period_start and not rec.period_end and rec.payment_date:
+            # Sin período: buscar desgloses cercanos a la fecha de pago
+            q = q.filter(
+                db.or_(
+                    Payslip.period_start <= rec.payment_date,
+                    Payslip.period_end >= rec.payment_date,
+                )
+            )
+        payslip = q.order_by(Payslip.period_start.desc()).first()
+    if not payslip and (rec.employee_id or emp_name):
+        # Último intento: cualquier desglose del empleado (por id o nombre, incl. coincidencia parcial)
+        conds = []
+        if rec.employee_id:
+            conds.append(Payslip.employee_id == rec.employee_id)
+        if emp_name:
+            conds.append(Payslip.employee_name.ilike(emp_name))
+            conds.append(Payslip.employee_name.ilike(f"%{emp_name}%"))  # Coincidencia parcial
+        if conds:
+            payslip = Payslip.query.filter(Payslip.franchisee_id == fid, db.or_(*conds)).order_by(Payslip.period_start.desc()).first()
+    if payslip:
+        pdf_bytes = build_payslip_pdf(payslip)
+        safe_name = re.sub(r"[^\w\s\-]", "", payslip.employee_name or "colaborador").replace(" ", "_")[:40]
+        filename = f"desglose_{safe_name}_{payslip.period_start}.pdf"
+    else:
+        from utils.payslip_pdf import build_payment_summary_pdf
+        pdf_bytes = build_payment_summary_pdf(rec)
+        safe_name = re.sub(r"[^\w\s\-]", "", (rec.employee.name if rec.employee else "") or "pago").replace(" ", "_")[:40]
+        filename = f"comprobante_pago_{safe_name}_{rec.payment_date}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
