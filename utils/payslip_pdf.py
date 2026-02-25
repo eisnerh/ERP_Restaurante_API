@@ -51,8 +51,10 @@ def _build_payslip_flow(payslip, colors, styles, normal, inch):
         normal
     ))
     flow.append(Spacer(1, 0.2 * inch))
+    tipo_labels = {"mensual": "Mensual", "quincenal": "Quincenal", "semanal": "Semanal", "diario": "Por día", "por_hora": "Por hora"}
+    tipo_str = tipo_labels.get(payslip.tipo_pago, payslip.tipo_pago or "Mensual")
     flow.append(Paragraph(
-        f"<b>Colaborador:</b> {payslip.employee_name} &nbsp;&nbsp; <b>Cargo:</b> {payslip.position or '-'}",
+        f"<b>Colaborador:</b> {payslip.employee_name} &nbsp;&nbsp; <b>Cargo:</b> {payslip.position or '-'} &nbsp;&nbsp; <b>Tipo pago:</b> {tipo_str}",
         normal
     ))
     flow.append(Spacer(1, 0.15 * inch))

@@ -934,32 +934,46 @@ def _normalize_emp_name(s):
 
 
 # ---------- Generar desgloses desde BD (consultas SQL) ----------
-def _generate_payslips_from_entries(fid, location_id, period_date, replace=False):
+def _generate_payslips_from_entries(fid, location_id, period_start, period_end, replace=False, tipo_pago_override=None, tipo_por_empleado=None, employee_ids=None):
     """
-    Genera Payslips desde PayrollEntry y Employee (consultas SQL).
-    Agrupa registros por empleado y período, calcula salarios y líneas desde la BD.
+    Genera Payslips desde PayrollEntry y Employee.
+    period_start, period_end: rango de fechas (ej. 16 feb - 28 feb para quincena).
+    tipo_por_empleado: dict {employee_id: tipo_pago} para override por empleado.
     """
-    from calendar import monthrange
-
     loc = PayrollLocation.query.filter_by(id=location_id, franchisee_id=fid).first()
     if not loc:
         return 0, "Ubicación no encontrada"
     location_name = loc.name
 
-    # Período: mes del period_date
-    period_start = date_type(period_date.year, period_date.month, 1)
-    _, last_day = monthrange(period_date.year, period_date.month)
-    period_end = date_type(period_date.year, period_date.month, last_day)
-
-    # Registros del mes (period_date dentro del mes)
+    # Registros cuyo period_date está dentro del rango (incluye vales, rebajos, hrs extra del período)
     entries = PayrollEntry.query.filter(
         PayrollEntry.location_id == location_id,
         PayrollEntry.period_date >= period_start,
         PayrollEntry.period_date <= period_end,
     ).order_by(PayrollEntry.employee_name).all()
 
-    if not entries:
-        return 0, "No hay registros de planilla para esa ubicación y período"
+    # Agrupar por empleado (nombre normalizado). groups[key] = (emp_id_override, list of entries)
+    groups = {}
+    for e in entries:
+        key = _normalize_emp_name(e.employee_name)
+        if not key:
+            continue
+        if key not in groups:
+            groups[key] = (None, [])
+        groups[key][1].append(e)
+
+    # Incluir empleados seleccionados sin registros (solo salario base)
+    if employee_ids:
+        for emp_id in employee_ids:
+            emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first()
+            if not emp or not emp.name:
+                continue
+            key = _normalize_emp_name(emp.name)
+            if key not in groups:
+                groups[key] = (emp_id, [])
+
+    if not groups:
+        return 0, "No hay empleados ni registros para esa ubicación y período"
 
     if replace:
         payslips_to_del = Payslip.query.filter(
@@ -972,19 +986,9 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
             db.session.delete(ps)
         db.session.flush()
 
-    # Agrupar por empleado (nombre normalizado: sin acentos, espacios colapsados)
-    groups = {}
-    for e in entries:
-        key = _normalize_emp_name(e.employee_name)
-        if not key:
-            continue
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(e)
-
     created = 0
-    for emp_name_upper, group_entries in groups.items():
-        emp_id = next((e.employee_id for e in group_entries if e.employee_id), None)
+    for emp_name_upper, (emp_id_override, group_entries) in groups.items():
+        emp_id = emp_id_override or next((e.employee_id for e in group_entries if e.employee_id), None)
         emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if emp_id else None
         if not emp:
             # Buscar por nombre normalizado (sin acentos)
@@ -993,7 +997,7 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
                 if _normalize_emp_name(ae.name) == emp_name_upper:
                     emp = ae
                     break
-        emp_name = group_entries[0].employee_name if group_entries else ""
+        emp_name = group_entries[0].employee_name if group_entries else (emp.name if emp else "")
         if emp:
             emp_name = emp.name or emp_name
         if not emp_name:
@@ -1040,7 +1044,8 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
                     numero_cuenta = ge.numero_cuenta
                     break
 
-        tipo_pago = (emp.periodo_pago if emp and emp.periodo_pago else None) or "mensual"
+        emp_tipo = (tipo_por_empleado or {}).get(emp.id if emp else None) if tipo_por_empleado else None
+        tipo_pago = emp_tipo or tipo_pago_override or (emp.periodo_pago if emp and emp.periodo_pago else None) or "mensual"
         if tipo_pago == "quincenal" and salary_quincena:
             base_salario_periodo = salary_quincena
         elif tipo_pago == "semanal" and salary_semana:
@@ -1147,19 +1152,78 @@ def _generate_payslips_from_entries(fid, location_id, period_date, replace=False
     return created, None
 
 
+@payroll_bp.route("/generate-payslips/preview", methods=["GET"])
+def generate_payslips_preview():
+    """
+    Lista empleados para generar desgloses. Incluye empleados con registros en el período
+    y empleados de la ubicación sin registros.
+    Query: location_name=, period_start=, period_end= (YYYY-MM-DD).
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    location_name = (request.args.get("location_name") or "").strip()
+    period_start = _parse_date_param(request.args.get("period_start"))
+    period_end = _parse_date_param(request.args.get("period_end"))
+    if not location_name:
+        return jsonify({"error": "Falta location_name"}), 400
+    if not period_start or not period_end:
+        return jsonify({"error": "Faltan period_start y period_end (YYYY-MM-DD)"}), 400
+    loc = PayrollLocation.query.filter_by(franchisee_id=fid, name=location_name).first()
+    if not loc:
+        return jsonify({"error": "Ubicación no encontrada"}), 400
+    # Empleados con registros en el período
+    entries = PayrollEntry.query.filter(
+        PayrollEntry.location_id == loc.id,
+        PayrollEntry.period_date >= period_start,
+        PayrollEntry.period_date <= period_end,
+    ).all()
+    emp_ids_from_entries = set(e.employee_id for e in entries if e.employee_id)
+    emp_names_from_entries = set(_normalize_emp_name(e.employee_name) for e in entries if e.employee_name)
+    # Empleados de la ubicación
+    emps_in_loc = Employee.query.filter_by(franchisee_id=fid).filter(
+        db.or_(Employee.location_id == loc.id, Employee.location_id.is_(None))
+    ).all()
+    emp_ids_from_loc = set(e.id for e in emps_in_loc)
+    all_emp_ids = emp_ids_from_entries | emp_ids_from_loc
+    # Empleados por nombre (sin employee_id en entries)
+    for e in entries:
+        if not e.employee_id and e.employee_name:
+            for ae in emps_in_loc:
+                if _normalize_emp_name(ae.name) == _normalize_emp_name(e.employee_name):
+                    all_emp_ids.add(ae.id)
+                    break
+    employees = Employee.query.filter(Employee.id.in_(all_emp_ids), Employee.franchisee_id == fid).order_by(Employee.name).all()
+    return jsonify({
+        "employees": [{"id": e.id, "name": e.name, "periodo_pago": e.periodo_pago or "mensual"} for e in employees],
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+        "location_name": location_name,
+    })
+
+
 @payroll_bp.route("/generate-payslips", methods=["POST"])
 def generate_payslips():
     """
-    Genera desgloses de pago desde la BD (PayrollEntry + Employee).
-    Body: location_id (int) o location_name (str), period_date (YYYY-MM-DD), replace (bool).
+    Genera desgloses desde BD.
+    Body: location_name=, period_start=, period_end= (YYYY-MM-DD), replace=, tipo_pago=,
+          tipo_por_empleado= {employee_id: tipo_pago} opcional.
     """
     fid = get_or_default_franchisee_id()
     if not fid:
         return jsonify({"error": "Selecciona un franquiciado"}), 400
     data = request.get_json() or {}
+    period_start = _parse_date_param(data.get("period_start"))
+    period_end = _parse_date_param(data.get("period_end"))
     period_date = _parse_date_param(data.get("period_date"))
-    if not period_date:
-        return jsonify({"error": "Falta period_date (YYYY-MM-DD)"}), 400
+    if not period_start or not period_end:
+        if period_date:
+            from calendar import monthrange
+            period_start = date_type(period_date.year, period_date.month, 1)
+            _, last_day = monthrange(period_date.year, period_date.month)
+            period_end = date_type(period_date.year, period_date.month, last_day)
+        else:
+            return jsonify({"error": "Faltan period_start y period_end (YYYY-MM-DD)"}), 400
     location_id = data.get("location_id")
     if location_id is not None and not isinstance(location_id, (int, float)):
         try:
@@ -1173,7 +1237,20 @@ def generate_payslips():
     if not location_id:
         return jsonify({"error": "Falta location_id o location_name"}), 400
     replace = data.get("replace", False)
-    created, err = _generate_payslips_from_entries(fid, location_id, period_date, replace=replace)
+    tipo_pago_override = (data.get("tipo_pago") or "").strip()
+    if tipo_pago_override and tipo_pago_override not in ("mensual", "quincenal", "semanal", "diario", "por_hora"):
+        tipo_pago_override = None
+    tipo_por_empleado = data.get("tipo_por_empleado")
+    if isinstance(tipo_por_empleado, dict):
+        tipo_por_empleado = {int(k): v for k, v in tipo_por_empleado.items() if v in ("mensual", "quincenal", "semanal", "diario", "por_hora")}
+    else:
+        tipo_por_empleado = None
+    employee_ids = data.get("employee_ids")
+    if isinstance(employee_ids, list):
+        employee_ids = [int(x) for x in employee_ids if x]
+    else:
+        employee_ids = None
+    created, err = _generate_payslips_from_entries(fid, location_id, period_start, period_end, replace=replace, tipo_pago_override=tipo_pago_override, tipo_por_empleado=tipo_por_empleado, employee_ids=employee_ids)
     if err:
         return jsonify({"error": err}), 400
     return jsonify({
@@ -1285,13 +1362,25 @@ def list_payslips():
     return jsonify(payslips_schema.dump(payslips))
 
 
-@payroll_bp.route("/payslips/<int:payslip_id>", methods=["GET"])
-def get_payslip(payslip_id):
-    """Obtiene un desglose de pago por ID."""
+@payroll_bp.route("/payslips/<int:payslip_id>", methods=["GET", "PUT", "DELETE"])
+def payslip_detail(payslip_id):
+    """Obtiene, actualiza o elimina un desglose de pago."""
     fid = get_or_default_franchisee_id()
     payslip = Payslip.query.filter_by(id=payslip_id, franchisee_id=fid).first() if fid else None
     if not payslip:
         return jsonify({"error": "Desglose no encontrado"}), 404
+    if request.method == "GET":
+        return jsonify(payslip_schema.dump(payslip))
+    if request.method == "DELETE":
+        for rec in PaymentRecord.query.filter_by(payslip_id=payslip_id).all():
+            rec.payslip_id = None
+        db.session.delete(payslip)
+        db.session.commit()
+        return jsonify({"message": "Desglose eliminado"}), 200
+    data = request.get_json() or {}
+    if "tipo_pago" in data and data["tipo_pago"] in ("mensual", "quincenal", "semanal", "diario", "por_hora"):
+        payslip.tipo_pago = data["tipo_pago"]
+        db.session.commit()
     return jsonify(payslip_schema.dump(payslip))
 
 
@@ -1514,6 +1603,9 @@ def _calc_payment_amount(emp, data):
             base = salario / dias_mes * days
             base, extra = _add_hours_extra(base, {"days_worked": days, "include_sundays": incl_sun})
             return round(base, 2), extra
+        if salario > 0 and (amount is None or amount <= 0):
+            base = salario / 22
+            return round(base, 2), {}
 
     if periodo == "mensual" and salario > 0 and (amount is None or amount <= 0):
         base, extra = _add_hours_extra(salario, {})

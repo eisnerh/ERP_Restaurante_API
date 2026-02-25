@@ -28,70 +28,68 @@
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
 
 <nav class="nav nav-tabs mb-4" id="planilla-tabs" role="tablist">
-  <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-ubicaciones" type="button">1. Ubicaciones</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-puestos" type="button">2. Puestos</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-deducciones" type="button">3. Tipos deducción</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-empleados" type="button">4. Empleados</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-registros" type="button">5. Registros</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-desgloses" type="button">6. Desgloses</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pagos" type="button">7. Registro de pagos</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-resumen" type="button">8. Resumen PDF</button>
-  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-reporte-empleado" type="button">9. Reporte por empleado</button>
+  <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-config" type="button"><i class="bi bi-gear me-1"></i>Configuración</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-empleados" type="button"><i class="bi bi-people me-1"></i>Empleados</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-registros" type="button"><i class="bi bi-journal-text me-1"></i>Registros</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-desgloses" type="button"><i class="bi bi-receipt me-1"></i>Desgloses</button>
+  <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-reporte-empleado" type="button"><i class="bi bi-graph-up me-1"></i>Reportes</button>
 </nav>
 
 <div class="tab-content">
-  <!-- 1. Ubicaciones -->
-  <div class="tab-pane fade show active" id="tab-ubicaciones">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-geo-alt me-2"></i>Ubicaciones</h5>
-        <p class="text-muted small mb-3">El franquiciado seleccionado arriba es la ubicación por defecto. Puedes crear ubicaciones adicionales (sucursales) o usar la del franquiciado para empleados y registros.</p>
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          <button type="button" class="btn btn-primary" onclick="openLocForm()"><i class="bi bi-plus-lg me-1"></i>Nueva ubicación</button>
-          <button type="button" class="btn btn-outline-secondary" onclick="importExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Importar desde Excel</button>
+  <!-- 1. Configuración (Ubicaciones, Puestos, Tipos deducción) -->
+  <div class="tab-pane fade show active" id="tab-config">
+    <div class="accordion" id="config-accordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#config-ubicaciones" aria-expanded="true">Ubicaciones</button>
+        </h2>
+        <div id="config-ubicaciones" class="accordion-collapse collapse show" data-bs-parent="#config-accordion">
+          <div class="accordion-body">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openLocForm()"><i class="bi bi-plus-lg me-1"></i>Nueva ubicación</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="importExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Importar Excel</button>
+            </div>
+            <div id="loc-loading" class="text-center text-muted py-3">Cargando...</div>
+            <div id="loc-content" style="display:none;"></div>
+          </div>
         </div>
-        <div id="loc-loading" class="text-center text-muted py-4">Cargando...</div>
-        <div id="loc-content" style="display:none;"></div>
+      </div>
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#config-puestos">Puestos</button>
+        </h2>
+        <div id="config-puestos" class="accordion-collapse collapse" data-bs-parent="#config-accordion">
+          <div class="accordion-body">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openPosForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo puesto</button>
+            </div>
+            <div id="pos-loading" class="text-center text-muted py-3">Cargando...</div>
+            <div id="pos-content" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#config-deducciones">Tipos de deducción</button>
+        </h2>
+        <div id="config-deducciones" class="accordion-collapse collapse" data-bs-parent="#config-accordion">
+          <div class="accordion-body">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openDedTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
+            </div>
+            <div id="ded-loading" class="text-center text-muted py-3">Cargando...</div>
+            <div id="ded-content" style="display:none;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 2. Puestos -->
-  <div class="tab-pane fade" id="tab-puestos">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-briefcase me-2"></i>Puestos / Cargos</h5>
-        <p class="text-muted small mb-3">Estándar global. Tipos: empleado, administrador, administrativo, inventario. Los mismos para todos los franquiciados.</p>
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          <button type="button" class="btn btn-primary" onclick="openPosForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo puesto</button>
-        </div>
-        <div id="pos-loading" class="text-center text-muted py-4">Cargando...</div>
-        <div id="pos-content" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3. Tipos de deducción -->
-  <div class="tab-pane fade" id="tab-deducciones">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-calculator me-2"></i>Tipos de deducción</h5>
-        <p class="text-muted small mb-3">Estándar global. Pueden ser negativos o positivos. Ej: día libre intercambiado = horas negativas (negociables).</p>
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          <button type="button" class="btn btn-primary" onclick="openDedTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
-        </div>
-        <div id="ded-loading" class="text-center text-muted py-4">Cargando...</div>
-        <div id="ded-content" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 4. Empleados -->
+  <!-- 2. Empleados -->
   <div class="tab-pane fade" id="tab-empleados">
     <div class="card">
       <div class="card-body">
         <h5 class="card-title mb-3"><i class="bi bi-people me-2"></i>Empleados</h5>
-        <p class="text-muted small mb-3">Empleados de la franquicia. Los desgloses de planilla se vinculan al empleado por nombre.</p>
         <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
           <button type="button" class="btn btn-primary" onclick="openEmpForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo empleado</button>
           <div>
@@ -107,12 +105,11 @@
     </div>
   </div>
 
-  <!-- 5. Registros de planilla -->
+  <!-- 3. Registros -->
   <div class="tab-pane fade" id="tab-registros">
     <div class="card">
       <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-person-lines-fill me-2"></i>Registros de planilla</h5>
-        <p class="text-muted small mb-3">Empleados, mermas (gasto del empleado) y cargos adicionales por ubicación y período.</p>
+        <h5 class="card-title mb-3"><i class="bi bi-journal-text me-2"></i>Registros de planilla</h5>
         <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
           <button type="button" class="btn btn-primary" onclick="openEntryForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo registro</button>
           <div>
@@ -130,133 +127,87 @@
     </div>
   </div>
 
-  <!-- 6. Desgloses de pago -->
+  <!-- 4. Desgloses -->
   <div class="tab-pane fade" id="tab-desgloses">
     <div class="card">
       <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-receipt-cutoff me-2"></i>Desgloses de pago (payslips)</h5>
-        <p class="text-muted small mb-3">Los datos se obtienen de la base de datos (registros de planilla y empleados). Genera desde BD o importa desde Excel.</p>
-        <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
-          <button type="button" class="btn btn-primary" onclick="generatePayslipsFromDb()"><i class="bi bi-database me-1"></i>Generar desde BD</button>
+        <h5 class="card-title mb-3"><i class="bi bi-receipt me-2"></i>Desgloses y resumen</h5>
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+          <button type="button" class="btn btn-primary" onclick="openSimplePaymentForm()"><i class="bi bi-cash-coin me-1"></i>Registrar pago</button>
+          <button type="button" class="btn btn-outline-primary" onclick="openGeneratePayslipsModal()"><i class="bi bi-database me-1"></i>Generar desde BD</button>
           <button type="button" class="btn btn-outline-secondary" onclick="openImportPayslipModal()"><i class="bi bi-upload me-1"></i>Importar Excel</button>
           <button type="button" class="btn btn-outline-primary" onclick="printBatchPayslipsFromDesgloses()"><i class="bi bi-printer me-1"></i>Imprimir desgloses</button>
           <div>
             <label class="form-label small mb-0">Ubicación</label>
-            <select id="filter-ps-loc" class="form-select form-select-sm" style="min-width:180px;" onchange="loadPayslips()"></select>
+            <select id="filter-ps-loc" class="form-select form-select-sm" style="min-width:160px;" onchange="loadPayslips(); loadPaymentsInDesgloses(); updateSummaryLink();"></select>
           </div>
           <div>
-            <label class="form-label small mb-0">Período inicio</label>
-            <input type="date" id="filter-ps-start" class="form-control form-control-sm" onchange="loadPayslips()">
+            <label class="form-label small mb-0">Inicio</label>
+            <input type="date" id="filter-ps-start" class="form-control form-control-sm" onchange="loadPayslips(); loadPaymentsInDesgloses(); updateSummaryLink(); updatePeriodTypeLabel();">
           </div>
           <div>
-            <label class="form-label small mb-0">Período fin</label>
-            <input type="date" id="filter-ps-end" class="form-control form-control-sm" onchange="loadPayslips()">
+            <label class="form-label small mb-0">Fin</label>
+            <input type="date" id="filter-ps-end" class="form-control form-control-sm" onchange="loadPayslips(); loadPaymentsInDesgloses(); updateSummaryLink(); updatePeriodTypeLabel();">
+          </div>
+          <div>
+            <label class="form-label small mb-0">Período</label>
+            <span id="period-type-badge" class="badge bg-secondary align-middle" style="font-size:0.85rem;">—</span>
+          </div>
+          <div>
+            <label class="form-label small mb-0">&nbsp;</label>
+            <a id="summary-pdf-link" href="#" class="btn btn-outline-success btn-sm d-block disabled" target="_blank"><i class="bi bi-file-pdf me-1"></i>Resumen PDF</a>
           </div>
         </div>
         <div id="ps-loading" class="text-center text-muted py-4">Cargando...</div>
         <div id="ps-content" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 7. Registro de pagos -->
-  <div class="tab-pane fade" id="tab-pagos">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-cash-coin me-2"></i>Registro de pagos</h5>
-        <p class="text-muted small mb-3">Registra los pagos realizados a empleados (mensual, quincenal, semanal o diario).</p>
-        <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
-          <button type="button" class="btn btn-primary" onclick="openPaymentForm()"><i class="bi bi-plus-lg me-1"></i>Registrar pago</button>
-          <button type="button" class="btn btn-outline-primary" onclick="printBatchPayslips()"><i class="bi bi-printer me-1"></i>Imprimir desgloses</button>
-          <div>
-            <label class="form-label small mb-0">Empleado</label>
-            <select id="filter-pay-emp" class="form-select form-select-sm" style="min-width:180px;" onchange="loadPayments()">
-              <option value="">Todos</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label small mb-0">Tipo período</label>
-            <select id="filter-pay-periodo" class="form-select form-select-sm" style="min-width:140px;" onchange="loadPayments()">
-              <option value="">Todos</option>
-              <option value="mensual">Mensual</option>
-              <option value="quincenal">Quincenal</option>
-              <option value="semanal">Semanal</option>
-              <option value="diario">Días</option>
-              <option value="por_hora">Horas</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label small mb-0">Desde</label>
-            <input type="date" id="filter-pay-from" class="form-control form-control-sm" onchange="loadPayments()">
-          </div>
-          <div>
-            <label class="form-label small mb-0">Hasta</label>
-            <input type="date" id="filter-pay-to" class="form-control form-control-sm" onchange="loadPayments()">
-          </div>
+        <div id="ps-payments-section" class="mt-4" style="display:none;">
+          <h6 class="mb-2"><i class="bi bi-cash-coin me-1"></i>Pagos registrados en este período</h6>
+          <p class="text-muted small mb-2">Si registraste un pago por error, elimínalo aquí.</p>
+          <div id="ps-payments-loading" class="text-muted small py-2" style="display:none;">Cargando pagos...</div>
+          <div id="ps-payments-content"></div>
         </div>
-        <div id="pay-loading" class="text-center text-muted py-4">Cargando...</div>
-        <div id="pay-content" style="display:none;"></div>
       </div>
     </div>
   </div>
 
-  <!-- 8. Resumen PDF -->
-  <div class="tab-pane fade" id="tab-resumen">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-file-pdf me-2"></i>Resumen quincena (PDF)</h5>
-        <p class="text-muted small mb-3">Genera un PDF con el resumen de lo pagado: lista de colaboradores y monto depositado.</p>
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">Ubicación</label>
-            <select id="summary-loc" class="form-select"></select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Inicio período</label>
-            <input type="date" id="summary-start" class="form-control">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Fin período</label>
-            <input type="date" id="summary-end" class="form-control">
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <a id="summary-pdf-link" href="#" class="btn btn-primary w-100" target="_blank"><i class="bi bi-file-pdf me-1"></i>Generar PDF</a>
-          </div>
-        </div>
-        <p class="text-muted small mt-2 mb-0">Selecciona ubicación y rango de fechas. Genera desgloses desde BD en la pestaña Desgloses.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- 9. Reporte por empleado -->
+  <!-- 5. Reportes -->
   <div class="tab-pane fade" id="tab-reporte-empleado">
     <div class="card">
       <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-person-vcard me-2"></i>Reporte por empleado</h5>
-        <p class="text-muted small mb-3">Consulta pagos realizados y deducciones aplicadas a un empleado en un rango de fechas.</p>
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
-            <label class="form-label">Empleado</label>
-            <select id="report-emp" class="form-select" onchange="loadEmployeeReport()">
-              <option value="">-- Seleccionar empleado --</option>
+        <h5 class="card-title mb-3"><i class="bi bi-graph-up me-2"></i>Pagos realizados</h5>
+        <p class="text-muted small mb-3">Filtra por período para ver los pagos registrados.</p>
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+          <div>
+            <label class="form-label small mb-0">Período rápido</label>
+            <div class="btn-group btn-group-sm">
+              <button type="button" class="btn btn-outline-secondary" onclick="setReportPeriod('1m')">Último mes</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="setReportPeriod('3m')">Trimestre</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="setReportPeriod('6m')">6 meses</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="setReportPeriod('1y')">Año</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label small mb-0">Desde</label>
+            <input type="date" id="report-from" class="form-control form-control-sm" onchange="loadReportPayments()">
+          </div>
+          <div>
+            <label class="form-label small mb-0">Hasta</label>
+            <input type="date" id="report-to" class="form-control form-control-sm" onchange="loadReportPayments()">
+          </div>
+          <div>
+            <label class="form-label small mb-0">Empleado</label>
+            <select id="report-emp" class="form-select form-select-sm" style="min-width:180px;" onchange="loadReportPayments()">
+              <option value="">Todos</option>
             </select>
           </div>
-          <div class="col-md-2">
-            <label class="form-label">Desde</label>
-            <input type="date" id="report-from" class="form-control" onchange="loadEmployeeReport()">
+          <div>
+            <button type="button" class="btn btn-primary" onclick="loadReportPayments()"><i class="bi bi-arrow-repeat me-1"></i>Filtrar</button>
           </div>
-          <div class="col-md-2">
-            <label class="form-label">Hasta</label>
-            <input type="date" id="report-to" class="form-control" onchange="loadEmployeeReport()">
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <button type="button" class="btn btn-outline-primary w-100" onclick="loadEmployeeReport()"><i class="bi bi-arrow-repeat me-1"></i>Actualizar</button>
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <a id="report-pdf-link" href="#" class="btn btn-primary w-100 disabled" target="_blank"><i class="bi bi-file-pdf me-1"></i>Generar PDF</a>
+          <div>
+            <a id="report-pdf-link" href="#" class="btn btn-outline-success btn-sm disabled" target="_blank" title="Solo cuando hay empleado seleccionado"><i class="bi bi-file-pdf me-1"></i>PDF empleado</a>
           </div>
         </div>
-        <div id="report-loading" class="text-center text-muted py-3" style="display:none;">Cargando reporte...</div>
+        <div id="report-loading" class="text-center text-muted py-3" style="display:none;">Cargando...</div>
         <div id="report-content" style="display:none;"></div>
       </div>
     </div>
@@ -634,110 +585,40 @@
   </div>
 </div>
 
-<!-- Modal registrar pago -->
-<div id="modal-payment" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-payment')">
-  <div class="modal-dialog">
+<!-- Modal pago simple -->
+<div id="modal-pay-simple" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-pay-simple')">
+  <div class="modal-dialog" style="max-width:420px;">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="modal-payment-title">Registrar pago</h5></div>
-      <form onsubmit="savePayment(event)">
+      <div class="modal-header"><h5 class="modal-title">Registrar pago</h5></div>
+      <form onsubmit="saveSimplePayment(event)">
         <div class="modal-body">
-          <input type="hidden" id="pay-id" value="">
+          <p class="text-muted small mb-3">Empleado, tipo de período y fecha. El monto se calcula del salario base si lo dejas vacío.</p>
           <div class="mb-3">
             <label class="form-label">Empleado *</label>
-            <select id="pay-employee-id" class="form-select" required></select>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">Monto (₡) *</label>
-              <input type="number" id="pay-amount" class="form-control" step="0.01" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Fecha de pago *</label>
-              <input type="date" id="pay-date" class="form-control" required>
-            </div>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">Período que cubre</label>
-              <select id="pay-periodo-tipo" class="form-select" onchange="togglePaySections()">
-                <option value="mensual">Mensual</option>
-                <option value="quincenal">Quincenal</option>
-                <option value="semanal">Semanal</option>
-                <option value="diario">Diario</option>
-                <option value="por_hora">Por hora</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Ubicación</label>
-              <select id="pay-location-id" class="form-select">
-                <option value="">Sin asignar</option>
-              </select>
-            </div>
-          </div>
-          <div id="pay-daily-section" class="row g-2 mb-3" style="display:none;">
-            <div class="col-md-6">
-              <label class="form-label">Días trabajados</label>
-              <input type="number" id="pay-days-worked" class="form-control" step="0.5" min="0.5" placeholder="Ej. 5" oninput="calcPayAmount()">
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-              <div class="form-check">
-                <input type="checkbox" id="pay-include-sundays" class="form-check-input" onchange="calcPayAmount()">
-                <label class="form-check-label" for="pay-include-sundays">Incluir domingos en el cálculo</label>
-              </div>
-            </div>
-          </div>
-          <div id="pay-hourly-section" class="row g-2 mb-3" style="display:none;">
-            <div class="col-md-6">
-              <label class="form-label">Horas ordinarias</label>
-              <input type="number" id="pay-hours-worked" class="form-control" step="0.01" min="0" placeholder="Ej. 8" oninput="calcPayAmount()">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Horas extras</label>
-              <input type="number" id="pay-hours-extra" class="form-control" step="0.01" min="0" placeholder="Ej. 2" oninput="calcPayAmount()">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Tarifa por hora (₡)</label>
-              <input type="number" id="pay-hourly-rate" class="form-control" step="0.01" min="0" placeholder="Se calcula desde salario" oninput="calcPayAmount()">
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-              <div class="form-check">
-                <input type="checkbox" id="pay-hours-extra-festivo" class="form-check-input" onchange="calcPayAmount()">
-                <label class="form-check-label" for="pay-hours-extra-festivo">Horas extras en día festivo (CR: 2x)</label>
-              </div>
-            </div>
-            <div class="col-12"><small class="text-muted">CR Código de Trabajo: horas extras 1.5x (50% recargo), festivos 2x</small></div>
-          </div>
-          <div id="pay-extras-section" class="row g-2 mb-3" style="display:none;">
-            <div class="col-md-6">
-              <label class="form-label">Horas extras (adicional)</label>
-              <input type="number" id="pay-hours-extra-other" class="form-control" step="0.01" min="0" placeholder="Opcional" oninput="calcPayAmount()">
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-              <div class="form-check">
-                <input type="checkbox" id="pay-hours-extra-festivo-other" class="form-check-input" onchange="calcPayAmount()">
-                <label class="form-check-label" for="pay-hours-extra-festivo-other">Horas extras en día festivo (CR: 2x)</label>
-              </div>
-            </div>
-            <div class="col-12"><small class="text-muted">CR: recargo 50% (1.5x) ordinarias, 100% (2x) festivos</small></div>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6">
-              <label class="form-label">Inicio período</label>
-              <input type="date" id="pay-period-start" class="form-control">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Fin período</label>
-              <input type="date" id="pay-period-end" class="form-control">
-            </div>
+            <select id="pay-simple-emp" class="form-select" required onchange="calcSimplePayAmount()"></select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Notas</label>
-            <input type="text" id="pay-notes" class="form-control" placeholder="Opcional">
+            <label class="form-label">Tipo período</label>
+            <select id="pay-simple-periodo" class="form-select" onchange="calcSimplePayAmount()">
+              <option value="mensual">Mensual</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="semanal">Semanal</option>
+              <option value="diario">Días</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Monto (₡)</label>
+            <input type="number" id="pay-simple-amount" class="form-control" step="0.01" min="0" placeholder="Se calcula del salario base si está vacío">
+            <small class="text-muted">Vacío = período base. Ajustar si hay extras en Registros.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Fecha de pago *</label>
+            <input type="date" id="pay-simple-date" class="form-control" required>
           </div>
         </div>
         <div class="modal-footer">
           <button type="submit" class="btn btn-primary">Guardar</button>
-          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-payment')">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-pay-simple')">Cancelar</button>
         </div>
       </form>
     </div>
@@ -767,6 +648,24 @@
           <button type="button" class="btn btn-secondary" onclick="modalHide('modal-import-ps')">Cancelar</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal generar desgloses desde BD -->
+<div id="modal-generate-ps" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-generate-ps')">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Generar desgloses desde BD</h5></div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">Selecciona los empleados y el tipo de pago para cada uno. Se incluirán los registros (vales, rebajos, horas extras) del período seleccionado.</p>
+        <div id="gen-ps-loading" class="text-center py-3">Cargando empleados...</div>
+        <div id="gen-ps-list" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="doGeneratePayslipsFromDb()"><i class="bi bi-database me-1"></i>Generar</button>
+        <button type="button" class="btn btn-secondary" onclick="modalHide('modal-generate-ps')">Cancelar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -831,11 +730,6 @@ function loadLocations() {
         empLoc.innerHTML = '<option value="">Todas</option>';
         locations.forEach(l => { empLoc.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
       }
-      const payEmp = document.getElementById('filter-pay-emp');
-      if (payEmp) {
-        payEmp.innerHTML = '<option value="">Todos</option>';
-        apiGet(API_EMP).then(emps => { (emps || []).forEach(e => { payEmp.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; }); });
-      }
       fillEmpLocSelect();
       loadPositions();
       loadDeductionTypes();
@@ -897,13 +791,14 @@ function loadEntries() {
       document.getElementById('ent-loading').style.display = 'none';
       document.getElementById('ent-content').style.display = 'block';
       const list = data || [];
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Empleado</th><th>Tipo</th><th>Hrs extra</th><th>Créditos</th><th>Vale</th><th class="text-end">Acciones</th></tr></thead><tbody>';
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Fecha</th><th>Empleado</th><th>Tipo</th><th>Hrs extra</th><th>Créditos</th><th>Vale</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(o => {
         const pos = o.position_id ? positions.find(function(p) { return p.id === o.position_id; }) : null;
         let tipo = o.entry_type || (pos && pos.position_type) || 'empleado';
         if (tipo === 'employee') tipo = 'empleado';
         const badge = tipo === 'mermas' ? 'warning' : tipo === 'administrador' ? 'info' : tipo === 'administrativo' ? 'success' : tipo === 'inventario' ? 'dark' : 'primary';
-        html += '<tr><td>' + o.id + '</td><td>' + (o.employee_name || '') + '</td><td><span class="badge bg-' + badge + '">' + tipo + '</span></td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
+        const fecha = o.period_date ? (typeof o.period_date === 'string' ? o.period_date.split('T')[0] : o.period_date) : '-';
+        html += '<tr><td>' + o.id + '</td><td>' + fecha + '</td><td>' + (o.employee_name || '') + '</td><td><span class="badge bg-' + badge + '">' + tipo + '</span></td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('ent-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay registros. Filtra por ubicación/período o crea uno nuevo.</p>';
@@ -1312,8 +1207,17 @@ function onEntryTypeChange() {
 }
 function onEntryEmployeeChange() {
   const sel = document.getElementById('entry-employee-id');
-  const emp = employees.find(e => e.id === parseInt(sel.value, 10));
-  if (emp) document.getElementById('entry-employee-name').value = emp.name || '';
+  const emp = (employees || []).find(e => String(e.id) === String(sel.value));
+  if (!emp) return;
+  document.getElementById('entry-employee-name').value = emp.name || '';
+  if (emp.location_id) {
+    const locSel = document.getElementById('entry-location-id');
+    if (locSel && locSel.querySelector('option[value="' + emp.location_id + '"]')) locSel.value = emp.location_id;
+  }
+  if (emp.position_id) {
+    const posSel = document.getElementById('entry-position-id');
+    if (posSel && posSel.querySelector('option[value="' + emp.position_id + '"]')) posSel.value = emp.position_id;
+  }
 }
 function fillEmpSelect(selId) {
   const sel = document.getElementById(selId || 'entry-employee-id');
@@ -1395,62 +1299,6 @@ function delEntry(id) {
     .catch(err => showMsg(err.message, 'error'));
 }
 
-function loadPayments() {
-  const empId = document.getElementById('filter-pay-emp') ? document.getElementById('filter-pay-emp').value : '';
-  const periodo = document.getElementById('filter-pay-periodo') ? document.getElementById('filter-pay-periodo').value : '';
-  const from_ = document.getElementById('filter-pay-from') ? document.getElementById('filter-pay-from').value : '';
-  const to_ = document.getElementById('filter-pay-to') ? document.getElementById('filter-pay-to').value : '';
-  document.getElementById('pay-loading').style.display = 'block';
-  document.getElementById('pay-content').style.display = 'none';
-  let url = API_PAY + '?';
-  if (empId) url += 'employee_id=' + empId + '&';
-  if (periodo) url += 'periodo_tipo=' + encodeURIComponent(periodo) + '&';
-  if (from_) url += 'from_date=' + from_ + '&';
-  if (to_) url += 'to_date=' + to_;
-  apiGet(url)
-    .then(data => {
-      document.getElementById('pay-loading').style.display = 'none';
-      document.getElementById('pay-content').style.display = 'block';
-      const list = data || [];
-      const tipoLabels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover table-sm"><thead><tr><th>Fecha</th><th>Empleado</th><th>Tipo período</th><th>Período</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr></thead><tbody>';
-      list.forEach(p => {
-        const tipoPago = tipoLabels[p.periodo_tipo] || p.periodo_tipo || 'Mensual';
-        let period = (p.period_start ? p.period_start.split('T')[0] : '') + (p.period_end ? ' a ' + p.period_end.split('T')[0] : '');
-        if (p.periodo_tipo === 'por_hora' && p.hourly_rate != null) {
-          let det = (p.hours_worked || 0) + 'h ord';
-          if (p.hours_extra > 0) det += ' + ' + p.hours_extra + 'h extra' + (p.hours_extra_festivo ? ' (festivo)' : '');
-          period += (period ? ' ' : '') + '(' + det + ' x ' + Number(p.hourly_rate).toLocaleString() + ')';
-        } else if (p.periodo_tipo === 'diario' && p.days_worked != null) {
-          period += (period ? ' ' : '') + '(' + p.days_worked + ' d\u00edas' + (p.include_sundays ? ', con domingos' : '') + ')';
-        }
-        if (p.hours_extra != null && p.hours_extra > 0 && p.periodo_tipo !== 'por_hora') {
-          period += (period ? ' ' : '') + '+' + p.hours_extra + 'h extra' + (p.hours_extra_festivo ? ' (festivo)' : '');
-        }
-        const amt = Number(p.amount || 0).toLocaleString();
-        const basePay = (API_PAY && API_PAY.endsWith('/')) ? API_PAY.slice(0, -1) : (API_PAY || '/api/payroll/payments');
-        const pdfBtn = '<a href="' + basePay + '/' + p.id + '/payslip-pdf" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir desglose"><i class="bi bi-file-pdf"></i></a>';
-        html += '<tr><td>' + (p.payment_date ? p.payment_date.split('T')[0] : '-') + '</td><td>' + (p.employee_name || '-') + '</td><td><span class="badge bg-secondary">' + tipoPago + '</span></td><td>' + (period || '-') + '</td><td class="text-end">\u20A1 ' + amt + '</td><td class="text-end">' + pdfBtn + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="editPayment(' + p.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delPayment(' + p.id + ')">Eliminar</button></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      document.getElementById('pay-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay pagos registrados.</p>';
-    })
-    .catch(e => { document.getElementById('pay-loading').style.display = 'none'; showMsg('Error: ' + e.message, 'error'); });
-}
-
-function printBatchPayslips() {
-  const empId = (document.getElementById('filter-pay-emp') || {}).value;
-  const periodo = (document.getElementById('filter-pay-periodo') || {}).value;
-  const from_ = (document.getElementById('filter-pay-from') || {}).value;
-  const to_ = (document.getElementById('filter-pay-to') || {}).value;
-  let url = '/api/payroll/payslips/batch-pdf?';
-  if (empId) url += 'employee_id=' + empId + '&';
-  if (periodo) url += 'periodo_tipo=' + encodeURIComponent(periodo) + '&';
-  if (from_) url += 'from_date=' + from_ + '&';
-  if (to_) url += 'to_date=' + to_;
-  window.open(url, '_blank');
-}
-
 function printBatchPayslipsFromDesgloses() {
   const loc = (document.getElementById('filter-ps-loc') || {}).value;
   const start = (document.getElementById('filter-ps-start') || {}).value;
@@ -1460,232 +1308,6 @@ function printBatchPayslipsFromDesgloses() {
   if (start) url += 'period_start=' + start + '&';
   if (end) url += 'period_end=' + end;
   window.open(url, '_blank');
-}
-
-function togglePaySections() {
-  const tipo = (document.getElementById('pay-periodo-tipo') || {}).value;
-  const dailySec = document.getElementById('pay-daily-section');
-  const hourlySec = document.getElementById('pay-hourly-section');
-  const extrasSec = document.getElementById('pay-extras-section');
-  if (dailySec) dailySec.style.display = tipo === 'diario' ? 'block' : 'none';
-  if (hourlySec) hourlySec.style.display = tipo === 'por_hora' ? 'block' : 'none';
-  if (extrasSec) extrasSec.style.display = (tipo === 'mensual' || tipo === 'quincenal' || tipo === 'semanal' || tipo === 'diario') ? 'block' : 'none';
-  if (tipo === 'por_hora') prefillPayHourlyRate();
-  calcPayAmount();
-}
-
-function prefillPayHourlyRate() {
-  const empIdEl = document.getElementById('pay-employee-id');
-  const rateEl = document.getElementById('pay-hourly-rate');
-  if (!empIdEl || !rateEl || rateEl.value) return;
-  const emp = (employees || []).find(e => String(e.id) === String(empIdEl.value));
-  if (emp && emp.salario_hora) {
-    rateEl.value = emp.salario_hora;
-  } else if (emp && emp.salario_base) {
-    const hrsDia = emp.horas_por_dia || 8;
-    rateEl.value = Math.round(emp.salario_base / (hrsDia * 22) * 100) / 100;
-  }
-  calcPayAmount();
-}
-
-function calcPayAmount() {
-  const amountEl = document.getElementById('pay-amount');
-  const tipoEl = document.getElementById('pay-periodo-tipo');
-  if (!amountEl || !tipoEl) return;
-  const tipo = tipoEl.value;
-  const empId = (document.getElementById('pay-employee-id') || {}).value;
-  const emp = (employees || []).find(e => String(e.id) === String(empId));
-  const salario = emp && emp.salario_base ? parseFloat(emp.salario_base) : 0;
-
-  if (tipo === 'por_hora') {
-    const hrs = parseFloat((document.getElementById('pay-hours-worked') || {}).value) || 0;
-    const hrsExtra = parseFloat((document.getElementById('pay-hours-extra') || {}).value) || 0;
-    const rate = parseFloat((document.getElementById('pay-hourly-rate') || {}).value);
-    const isFestivo = (document.getElementById('pay-hours-extra-festivo') || {}).checked;
-    if (rate > 0 && (hrs > 0 || hrsExtra > 0)) {
-      const amt = (hrs * rate) + (hrsExtra * rate * (isFestivo ? 2 : 1.5));
-      amountEl.value = amt.toFixed(2);
-    }
-    return;
-  }
-  if (tipo === 'diario') {
-    const days = parseFloat((document.getElementById('pay-days-worked') || {}).value);
-    const inclSun = (document.getElementById('pay-include-sundays') || {}).checked;
-    let base = 0;
-    if (days > 0 && salario > 0) {
-      const diasMes = inclSun ? 26 : 22;
-      base = salario / diasMes * days;
-    }
-    const hrsExtra = parseFloat((document.getElementById('pay-hours-extra-other') || {}).value) || 0;
-    const isFestivo = (document.getElementById('pay-hours-extra-festivo-other') || {}).checked;
-    if (base > 0 || hrsExtra > 0) {
-      const hrsDia = emp && emp.horas_por_dia ? emp.horas_por_dia : 8;
-      const rate = salario > 0 ? salario / (hrsDia * 22) : 0;
-      const ext = hrsExtra > 0 && rate > 0 ? hrsExtra * rate * (isFestivo ? 2 : 1.5) : 0;
-      amountEl.value = (base + ext).toFixed(2);
-    }
-    return;
-  }
-  let base = 0;
-  if (tipo === 'mensual' && salario > 0) base = salario;
-  else if (tipo === 'quincenal' && salario > 0) base = salario / 2;
-  else if (tipo === 'semanal' && salario > 0) base = salario / 4.33;
-  const hrsExtra = parseFloat((document.getElementById('pay-hours-extra-other') || {}).value) || 0;
-  const isFestivo = (document.getElementById('pay-hours-extra-festivo-other') || {}).checked;
-  if (base > 0 || hrsExtra > 0) {
-    const hrsDia = emp && emp.horas_por_dia ? emp.horas_por_dia : 8;
-    const rate = salario > 0 ? salario / (hrsDia * 22) : 0;
-    const ext = hrsExtra > 0 && rate > 0 ? hrsExtra * rate * (isFestivo ? 2 : 1.5) : 0;
-    amountEl.value = (base + ext).toFixed(2);
-  }
-}
-
-function openPaymentForm() {
-  try {
-    document.getElementById('modal-payment-title').textContent = 'Registrar pago';
-    document.getElementById('pay-id').value = '';
-    const payEmp = document.getElementById('pay-employee-id');
-    if (payEmp) payEmp.value = '';
-    document.getElementById('pay-amount').value = '';
-    const payHrs = document.getElementById('pay-hours-worked');
-    if (payHrs) payHrs.value = '';
-    const payRate = document.getElementById('pay-hourly-rate');
-    if (payRate) payRate.value = '';
-    document.getElementById('pay-date').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('pay-periodo-tipo').value = 'mensual';
-    document.getElementById('pay-location-id').value = '';
-    document.getElementById('pay-period-start').value = '';
-    document.getElementById('pay-period-end').value = '';
-    document.getElementById('pay-notes').value = '';
-    const payDays = document.getElementById('pay-days-worked');
-    if (payDays) payDays.value = '';
-    const payIncSun = document.getElementById('pay-include-sundays');
-    if (payIncSun) payIncSun.checked = false;
-    const payHrsExtra = document.getElementById('pay-hours-extra');
-    if (payHrsExtra) payHrsExtra.value = '';
-    const payHrsExtraFest = document.getElementById('pay-hours-extra-festivo');
-    if (payHrsExtraFest) payHrsExtraFest.checked = false;
-    const payHrsExtraOther = document.getElementById('pay-hours-extra-other');
-    if (payHrsExtraOther) payHrsExtraOther.value = '';
-    const payHrsExtraFestOther = document.getElementById('pay-hours-extra-festivo-other');
-    if (payHrsExtraFestOther) payHrsExtraFestOther.checked = false;
-    togglePaySections();
-    const sel = document.getElementById('pay-employee-id');
-    if (sel) {
-      sel.innerHTML = '<option value="">-- Seleccionar empleado --</option>';
-      (employees || []).forEach(e => { sel.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; });
-      sel.onchange = function() { prefillPayHourlyRate(); calcPayAmount(); };
-    }
-    fillLocSelect('pay-location-id', 'Sin asignar');
-    apiGet(API_EMP).then(data => {
-      employees = Array.isArray(data) ? data : [];
-      const s = document.getElementById('pay-employee-id');
-      if (s) {
-        s.innerHTML = '<option value="">-- Seleccionar empleado --</option>';
-        employees.forEach(e => { s.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; });
-        s.onchange = function() { prefillPayHourlyRate(); calcPayAmount(); };
-      }
-    });
-    modalShow('modal-payment');
-  } catch (err) {
-    console.error('openPaymentForm:', err);
-    showMsg('Error: ' + (err.message || err), 'error');
-  }
-}
-
-function editPayment(id) {
-  apiGet((API_PAY.endsWith('/') ? API_PAY.slice(0, -1) : API_PAY) + '/' + id).then(p => {
-    document.getElementById('modal-payment-title').textContent = 'Editar pago';
-    document.getElementById('pay-id').value = p.id;
-    document.getElementById('pay-employee-id').value = p.employee_id || '';
-    document.getElementById('pay-amount').value = p.amount != null ? p.amount : '';
-    const payHrs = document.getElementById('pay-hours-worked');
-    if (payHrs) payHrs.value = p.hours_worked != null ? p.hours_worked : '';
-    const payRate = document.getElementById('pay-hourly-rate');
-    if (payRate) payRate.value = p.hourly_rate != null ? p.hourly_rate : '';
-    document.getElementById('pay-date').value = p.payment_date ? p.payment_date.split('T')[0] : '';
-    document.getElementById('pay-periodo-tipo').value = p.periodo_tipo || 'mensual';
-    document.getElementById('pay-location-id').value = p.location_id || '';
-    document.getElementById('pay-period-start').value = p.period_start ? p.period_start.split('T')[0] : '';
-    document.getElementById('pay-period-end').value = p.period_end ? p.period_end.split('T')[0] : '';
-    document.getElementById('pay-notes').value = p.notes || '';
-    const payDays = document.getElementById('pay-days-worked');
-    if (payDays) payDays.value = p.days_worked != null ? p.days_worked : '';
-    const payIncSun = document.getElementById('pay-include-sundays');
-    if (payIncSun) payIncSun.checked = !!p.include_sundays;
-    const payHrsExtra = document.getElementById('pay-hours-extra');
-    if (payHrsExtra) payHrsExtra.value = p.hours_extra != null ? p.hours_extra : '';
-    const payHrsExtraFest = document.getElementById('pay-hours-extra-festivo');
-    if (payHrsExtraFest) payHrsExtraFest.checked = !!p.hours_extra_festivo;
-    const payHrsExtraOther = document.getElementById('pay-hours-extra-other');
-    if (payHrsExtraOther) payHrsExtraOther.value = (p.periodo_tipo !== 'por_hora' && p.hours_extra != null) ? p.hours_extra : '';
-    const payHrsExtraFestOther = document.getElementById('pay-hours-extra-festivo-other');
-    if (payHrsExtraFestOther) payHrsExtraFestOther.checked = (p.periodo_tipo !== 'por_hora' && !!p.hours_extra_festivo);
-    togglePaySections();
-    const sel = document.getElementById('pay-employee-id');
-    if (sel) { sel.innerHTML = '<option value="">-- Seleccionar --</option>'; employees.forEach(e => { sel.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; }); sel.value = p.employee_id || ''; }
-    fillLocSelect('pay-location-id', 'Sin asignar');
-    modalShow('modal-payment');
-  }).catch(err => showMsg(err.message, 'error'));
-}
-
-function savePayment(e) {
-  e.preventDefault();
-  calcPayAmount();
-  const id = document.getElementById('pay-id').value;
-  const hrsEl = document.getElementById('pay-hours-worked');
-  const rateEl = document.getElementById('pay-hourly-rate');
-  const hrs = hrsEl ? parseFloat(hrsEl.value) : NaN;
-  const rate = rateEl ? parseFloat(rateEl.value) : NaN;
-  let amount = parseFloat(document.getElementById('pay-amount').value);
-  if ((isNaN(amount) || amount <= 0) && hrs > 0 && rate > 0) amount = hrs * rate;
-  const daysWorked = parseFloat((document.getElementById('pay-days-worked') || {}).value);
-  if ((isNaN(amount) || amount <= 0) && daysWorked > 0) {
-    const emp = (employees || []).find(empItem => String(empItem.id) === String(document.getElementById('pay-employee-id').value));
-    if (emp && emp.salario_base) {
-      const inclSun = (document.getElementById('pay-include-sundays') || {}).checked;
-      amount = emp.salario_base / (inclSun ? 26 : 22) * daysWorked;
-    }
-  }
-  const periodo = document.getElementById('pay-periodo-tipo').value || 'mensual';
-  const hrsExtraPorHora = parseFloat((document.getElementById('pay-hours-extra') || {}).value) || 0;
-  const hrsExtraOther = parseFloat((document.getElementById('pay-hours-extra-other') || {}).value) || 0;
-  const hrsExtra = periodo === 'por_hora' ? hrsExtraPorHora : hrsExtraOther;
-  const includeSundays = (document.getElementById('pay-include-sundays') || {}).checked;
-  const isFestivo = periodo === 'por_hora' ? (document.getElementById('pay-hours-extra-festivo') || {}).checked : (document.getElementById('pay-hours-extra-festivo-other') || {}).checked;
-  const data = {
-    employee_id: parseInt(document.getElementById('pay-employee-id').value, 10),
-    amount: amount,
-    payment_date: document.getElementById('pay-date').value,
-    periodo_tipo: document.getElementById('pay-periodo-tipo').value || 'mensual',
-    location_id: document.getElementById('pay-location-id').value ? parseInt(document.getElementById('pay-location-id').value, 10) : null,
-    period_start: document.getElementById('pay-period-start').value || null,
-    period_end: document.getElementById('pay-period-end').value || null,
-    notes: document.getElementById('pay-notes').value.trim() || null
-  };
-  if (hrs > 0 && rate > 0) {
-    data.hours_worked = hrs;
-    data.hourly_rate = rate;
-  }
-  if (daysWorked > 0) {
-    data.days_worked = daysWorked;
-    data.include_sundays = includeSundays;
-  }
-  if (hrsExtra > 0) {
-    data.hours_extra = hrsExtra;
-    data.hours_extra_festivo = isFestivo;
-  }
-  const basePay = API_PAY.endsWith('/') ? API_PAY.slice(0, -1) : API_PAY;
-  const p = id ? apiPut(basePay + '/' + id, data) : apiPost(API_PAY, data);
-  p.then(() => { modalHide('modal-payment'); showMsg('Pago registrado.', 'success'); loadPayments(); loadPayslips(); })
-    .catch(err => showMsg(err.message, 'error'));
-}
-
-function delPayment(id) {
-  if (!confirm('¿Eliminar este registro de pago?')) return;
-  apiDelete((API_PAY.endsWith('/') ? API_PAY.slice(0, -1) : API_PAY) + '/' + id)
-    .then(() => { showMsg('Pago eliminado.', 'success'); loadPayments(); loadPayslips(); })
-    .catch(err => showMsg(err.message, 'error'));
 }
 
 function loadPayslips() {
@@ -1704,13 +1326,15 @@ function loadPayslips() {
       document.getElementById('ps-loading').style.display = 'none';
       document.getElementById('ps-content').style.display = 'block';
       const list = data || [];
-      const tipoPagoLabels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Ubicación</th><th>Tipo pago</th><th>Período</th><th class="text-end">Total</th><th></th></tr></thead><tbody>';
+      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Ubicación</th><th>Tipo pago</th><th>Período</th><th class="text-end">Total</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(p => {
         const total = p.total_depositado != null ? '₡ ' + Number(p.total_depositado).toLocaleString() : '-';
         const period = (p.period_start || '') + ' a ' + (p.period_end || '');
-        const tipoPago = tipoPagoLabels[p.tipo_pago] || p.tipo_pago || 'Mensual';
-        html += '<tr><td>' + (p.employee_name || '') + '</td><td>' + (p.position || '-') + '</td><td>' + (p.location_name || '') + '</td><td>' + tipoPago + '</td><td>' + period + '</td><td class="text-end">' + total + '</td><td><a href="' + API_PS + '/' + p.id + '/pdf" class="btn btn-sm btn-primary" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a></td></tr>';
+        const tp = p.tipo_pago || 'mensual';
+        const sel = '<select class="form-select form-select-sm" style="width:110px;" onchange="updatePayslipTipo(' + p.id + ', this.value)" title="Cambiar tipo de pago"><option value="mensual"' + (tp==='mensual'?' selected':'') + '>Mensual</option><option value="quincenal"' + (tp==='quincenal'?' selected':'') + '>Quincenal</option><option value="semanal"' + (tp==='semanal'?' selected':'') + '>Semanal</option><option value="diario"' + (tp==='diario'?' selected':'') + '>Días</option><option value="por_hora"' + (tp==='por_hora'?' selected':'') + '>Horas</option></select>';
+        const basePs = (API_PS && API_PS.endsWith('/')) ? API_PS.slice(0, -1) : (API_PS || '/api/payroll/payslips');
+        const delBtn = '<button type="button" class="btn btn-sm btn-outline-danger" onclick="delPayslip(' + p.id + ', \'' + (p.employee_name || '').replace(/'/g, "\\'") + '\')" title="Eliminar desglose"><i class="bi bi-trash"></i></button>';
+        html += '<tr><td>' + (p.employee_name || '') + '</td><td>' + (p.position || '-') + '</td><td>' + (p.location_name || '') + '</td><td>' + sel + '</td><td>' + period + '</td><td class="text-end">' + total + '</td><td class="text-end"><a href="' + basePs + '/' + p.id + '/pdf" class="btn btn-sm btn-primary" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a> ' + delBtn + '</td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('ps-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay desgloses. Genera desde BD (registros de planilla) o importa desde Excel.</p>';
@@ -1718,29 +1342,180 @@ function loadPayslips() {
     .catch(() => { document.getElementById('ps-loading').style.display = 'none'; document.getElementById('ps-content').innerHTML = '<p class="text-muted">No se pudieron cargar los desgloses.</p>'; document.getElementById('ps-content').style.display = 'block'; });
 }
 
-function generatePayslipsFromDb() {
+function updatePayslipTipo(id, tipo) {
+  const base = (API_PS && API_PS.endsWith('/')) ? API_PS.slice(0, -1) : (API_PS || '/api/payroll/payslips');
+  fetch(base + '/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo_pago: tipo })
+  })
+  .then(r => r.json())
+  .then(() => showMsg('Tipo de pago actualizado.', 'success'))
+  .catch(err => showMsg('Error: ' + (err.message || err), 'error'));
+}
+
+function delPayslip(id, empName) {
+  if (!confirm('¿Eliminar el desglose de ' + (empName || 'este colaborador') + '? Se puede volver a generar desde BD.')) return;
+  const base = (API_PS && API_PS.endsWith('/')) ? API_PS.slice(0, -1) : (API_PS || '/api/payroll/payslips');
+  fetch(base + '/' + id, { method: 'DELETE' })
+    .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+    .then(() => { showMsg('Desglose eliminado.', 'success'); loadPayslips(); })
+    .catch(err => showMsg('Error: ' + (err.message || err), 'error'));
+}
+
+function loadPaymentsInDesgloses() {
+  const start = (document.getElementById('filter-ps-start') || {}).value;
+  const end = (document.getElementById('filter-ps-end') || {}).value;
+  const section = document.getElementById('ps-payments-section');
+  const loading = document.getElementById('ps-payments-loading');
+  const content = document.getElementById('ps-payments-content');
+  if (!section || !content) return;
+  if (!start || !end) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  loading.style.display = 'block';
+  content.innerHTML = '';
+  let url = API_PAY + '?from_date=' + encodeURIComponent(start) + '&to_date=' + encodeURIComponent(end);
+  apiGet(url).then(data => {
+    loading.style.display = 'none';
+    const list = data || [];
+    if (list.length === 0) {
+      content.innerHTML = '<p class="text-muted small mb-0">No hay pagos registrados en este período.</p>';
+      return;
+    }
+    const tipoLabels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
+    let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Fecha</th><th>Empleado</th><th>Tipo</th><th class="text-end">Monto</th><th></th></tr></thead><tbody>';
+    list.forEach(p => {
+      const fecha = p.payment_date ? (typeof p.payment_date === 'string' ? p.payment_date.split('T')[0] : p.payment_date) : '-';
+      const tipo = tipoLabels[p.periodo_tipo] || p.periodo_tipo || '-';
+      const basePay = (API_PAY && API_PAY.endsWith('/')) ? API_PAY.slice(0, -1) : (API_PAY || '/api/payroll/payments');
+      const delBtn = '<button type="button" class="btn btn-sm btn-outline-danger" onclick="delPaymentInDesgloses(' + p.id + ', \'' + (p.employee_name || '').replace(/'/g, "\\'") + '\')" title="Eliminar pago"><i class="bi bi-trash"></i></button>';
+      html += '<tr><td>' + fecha + '</td><td>' + (p.employee_name || '-') + '</td><td><span class="badge bg-secondary">' + tipo + '</span></td><td class="text-end">₡ ' + (p.amount != null ? Number(p.amount).toLocaleString('es-CR', {minimumFractionDigits: 2}) : '-') + '</td><td>' + delBtn + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    content.innerHTML = html;
+  }).catch(() => { loading.style.display = 'none'; content.innerHTML = '<p class="text-muted small">No se pudieron cargar los pagos.</p>'; });
+}
+
+function delPaymentInDesgloses(id, empName) {
+  if (!confirm('¿Eliminar el pago de ' + (empName || 'este empleado') + '? Esta acción no se puede deshacer.')) return;
+  const base = (API_PAY && API_PAY.endsWith('/')) ? API_PAY.slice(0, -1) : (API_PAY || '/api/payroll/payments');
+  apiDelete(base + '/' + id)
+    .then(() => { showMsg('Pago eliminado.', 'success'); loadPaymentsInDesgloses(); loadReportPayments(); })
+    .catch(err => showMsg('Error: ' + (err.message || err), 'error'));
+}
+
+function updatePeriodTypeLabel() {
+  const startEl = document.getElementById('filter-ps-start');
+  const endEl = document.getElementById('filter-ps-end');
+  const badge = document.getElementById('period-type-badge');
+  if (!badge || !startEl || !endEl) return;
+  const start = startEl.value;
+  const end = endEl.value;
+  if (!start || !end) {
+    badge.textContent = '—';
+    badge.className = 'badge bg-secondary align-middle';
+    return;
+  }
+  const d1 = new Date(start);
+  const d2 = new Date(end);
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+  let label = 'Personalizado';
+  let cls = 'bg-secondary';
+  if (diff === 1) { label = 'Día'; cls = 'bg-info'; }
+  else if (diff >= 6 && diff <= 8) { label = 'Semana'; cls = 'bg-primary'; }
+  else if (diff >= 14 && diff <= 16) { label = 'Quincena'; cls = 'bg-success'; }
+  else if (diff >= 28 && diff <= 31) { label = 'Mes'; cls = 'bg-success'; }
+  badge.textContent = label;
+  badge.className = 'badge ' + cls + ' align-middle';
+}
+
+let genPsData = null;
+
+function openGeneratePayslipsModal() {
   const locSel = document.getElementById('filter-ps-loc');
   const startEl = document.getElementById('filter-ps-start');
+  const endEl = document.getElementById('filter-ps-end');
   const locName = locSel ? locSel.value : '';
-  let periodDate = startEl ? startEl.value : '';
+  let periodStart = startEl ? startEl.value : '';
+  let periodEnd = endEl ? endEl.value : '';
   if (!locName) {
     showMsg('Selecciona una ubicación.', 'error');
     return;
   }
-  if (!periodDate) {
+  if (!periodStart || !periodEnd) {
     const d = new Date();
-    periodDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+    periodStart = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    periodEnd = last.getFullYear() + '-' + String(last.getMonth() + 1).padStart(2, '0') + '-' + String(last.getDate()).padStart(2, '0');
   }
-  if (!confirm('¿Generar desgloses desde la base de datos para ' + locName + ' (período ' + periodDate + ')? Se reemplazarán los desgloses existentes del mismo período.')) return;
+  document.getElementById('gen-ps-loading').style.display = 'block';
+  document.getElementById('gen-ps-list').style.display = 'none';
+  modalShow('modal-generate-ps');
+  const url = '/api/payroll/generate-payslips/preview?location_name=' + encodeURIComponent(locName) + '&period_start=' + periodStart + '&period_end=' + periodEnd;
+  fetch(url)
+  .then(r => r.json())
+  .then(j => {
+    document.getElementById('gen-ps-loading').style.display = 'none';
+    document.getElementById('gen-ps-list').style.display = 'block';
+    if (j.error) throw new Error(j.error);
+    genPsData = { location_name: locName, period_start: periodStart, period_end: periodEnd, employees: j.employees || [] };
+    const tipos = ['mensual','quincenal','semanal','diario','por_hora'];
+    const labels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
+    let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th><input type="checkbox" id="gen-ps-check-all" checked onchange="toggleGenPsCheckAll(this)"></th><th>Empleado</th><th>Tipo de pago</th></tr></thead><tbody>';
+    (genPsData.employees || []).forEach(e => {
+      const def = e.periodo_pago || 'mensual';
+      let opts = '';
+      tipos.forEach(t => { opts += '<option value="' + t + '"' + (t === def ? ' selected' : '') + '>' + labels[t] + '</option>'; });
+      html += '<tr><td><input type="checkbox" class="gen-ps-emp-check" value="' + e.id + '" checked></td><td>' + (e.name || '') + '</td><td><select class="form-select form-select-sm gen-ps-tipo" data-emp="' + e.id + '">' + opts + '</select></td></tr>';
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('gen-ps-list').innerHTML = genPsData.employees.length ? html : '<p class="text-muted mb-0">No hay empleados para esta ubicación y período.</p>';
+  })
+  .catch(err => {
+    document.getElementById('gen-ps-loading').style.display = 'none';
+    document.getElementById('gen-ps-list').style.display = 'block';
+    document.getElementById('gen-ps-list').innerHTML = '<p class="text-danger">Error: ' + (err.message || err) + '</p>';
+  });
+}
+
+function toggleGenPsCheckAll(ck) {
+  document.querySelectorAll('.gen-ps-emp-check').forEach(c => { c.checked = ck.checked; });
+}
+
+function doGeneratePayslipsFromDb() {
+  if (!genPsData) return;
+  const checked = document.querySelectorAll('.gen-ps-emp-check:checked');
+  const employee_ids = Array.from(checked).map(c => parseInt(c.value, 10));
+  const tipo_por_empleado = {};
+  document.querySelectorAll('.gen-ps-tipo').forEach(s => {
+    const empId = parseInt(s.dataset.emp, 10);
+    if (employee_ids.indexOf(empId) >= 0) tipo_por_empleado[empId] = s.value;
+  });
+  if (!employee_ids.length) {
+    showMsg('Selecciona al menos un empleado.', 'error');
+    return;
+  }
+  if (!confirm('¿Generar ' + employee_ids.length + ' desgloses para el período ' + genPsData.period_start + ' a ' + genPsData.period_end + '? Se reemplazarán los desgloses existentes del mismo período.')) return;
   fetch('/api/payroll/generate-payslips', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ location_name: locName, period_date: periodDate, replace: true })
+    body: JSON.stringify({
+      location_name: genPsData.location_name,
+      period_start: genPsData.period_start,
+      period_end: genPsData.period_end,
+      replace: true,
+      employee_ids: employee_ids,
+      tipo_por_empleado: tipo_por_empleado
+    })
   })
   .then(r => r.json())
   .then(j => {
     if (j.error) throw new Error(j.error);
-    showMsg('Generados ' + (j.payslips_created || 0) + ' desgloses desde la BD.', 'success');
+    modalHide('modal-generate-ps');
+    showMsg('Generados ' + (j.payslips_created || 0) + ' desgloses.', 'success');
     loadPayslips();
     loadSummaryPeriods();
   })
@@ -1776,71 +1551,166 @@ function importPayslipExcel(e) {
 function loadSummaryPeriods() {
   apiGet(API_PS_PERIODS).then(data => {
     const periods = (data && data.periods) || [];
-    const sel = document.getElementById('summary-loc');
-    const startEl = document.getElementById('summary-start');
-    const endEl = document.getElementById('summary-end');
-    sel.innerHTML = '<option value="">-- Seleccionar período --</option>';
-    periods.forEach(p => {
-      if (!p.location_name || !p.period_start || !p.period_end) return;
-      const opt = document.createElement('option');
-      opt.value = (p.location_name || '') + '|' + (p.period_start || '') + '|' + (p.period_end || '');
-      opt.textContent = (p.location_name || '') + ' (' + (p.period_start || '') + ' a ' + (p.period_end || '') + ')';
-      opt.dataset.loc = p.location_name || '';
-      opt.dataset.start = p.period_start || '';
-      opt.dataset.end = p.period_end || '';
-      sel.appendChild(opt);
-    });
-    if (periods.length === 0 && locations.length > 0) {
-      locations.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = (l.name || '') + '||';
-        opt.textContent = (l.name || '') + ' (ingresar fechas abajo)';
-        opt.dataset.loc = l.name || '';
-        opt.dataset.start = '';
-        opt.dataset.end = '';
-        sel.appendChild(opt);
-      });
-    }
-    sel.onchange = function() {
-      const o = this.options[this.selectedIndex];
-      if (o && o.dataset) {
-        if (o.dataset.start) { startEl.value = o.dataset.start; endEl.value = o.dataset.end; }
-        updateSummaryLink();
+    const startEl = document.getElementById('filter-ps-start');
+    const endEl = document.getElementById('filter-ps-end');
+    const locSel = document.getElementById('filter-ps-loc');
+    if (periods.length && periods[0].location_name && periods[0].period_start && periods[0].period_end) {
+      if (startEl) startEl.value = periods[0].period_start;
+      if (endEl) endEl.value = periods[0].period_end;
+      if (locSel) {
+        const opts = Array.from(locSel.options);
+        const idx = opts.findIndex(o => o.value === periods[0].location_name);
+        if (idx >= 0) locSel.selectedIndex = idx;
       }
-    };
-    if (periods.length && periods[0].location_name) {
-      startEl.value = periods[0].period_start || '';
-      endEl.value = periods[0].period_end || '';
-      sel.selectedIndex = 1;
+      loadPayslips();
+      loadPaymentsInDesgloses();
     }
     updateSummaryLink();
-  }).catch(() => updateSummaryLink());
+    updatePeriodTypeLabel();
+  }).catch(() => { updateSummaryLink(); updatePeriodTypeLabel(); });
+}
+
+function calcSimplePayAmount() {
+  const empId = (document.getElementById('pay-simple-emp') || {}).value;
+  const periodo = (document.getElementById('pay-simple-periodo') || {}).value || 'mensual';
+  const amountEl = document.getElementById('pay-simple-amount');
+  if (!empId || !amountEl) return;
+  const emp = (employees || []).find(e => String(e.id) === String(empId));
+  if (!emp || !emp.salario_base || emp.salario_base <= 0) {
+    amountEl.placeholder = 'Ingresar monto (empleado sin salario base)';
+    return;
+  }
+  let amt = 0;
+  if (periodo === 'mensual') amt = emp.salario_base;
+  else if (periodo === 'quincenal') amt = emp.salario_base / 2;
+  else if (periodo === 'semanal') amt = emp.salario_base / 4.33;
+  else if (periodo === 'diario') amt = emp.salario_base / 22;
+  if (amt > 0) amountEl.placeholder = '₡ ' + Math.round(amt).toLocaleString() + ' (período base)';
+}
+
+function openSimplePaymentForm() {
+  const sel = document.getElementById('pay-simple-emp');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Seleccionar empleado --</option>';
+  apiGet(API_EMP).then(emps => {
+    employees = Array.isArray(emps) ? emps : [];
+    employees.forEach(e => { sel.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>'; });
+    const reportEmp = document.getElementById('report-emp');
+    if (reportEmp && reportEmp.value) sel.value = reportEmp.value;
+    calcSimplePayAmount();
+  });
+  document.getElementById('pay-simple-amount').value = '';
+  document.getElementById('pay-simple-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('pay-simple-periodo').value = 'mensual';
+  modalShow('modal-pay-simple');
+}
+
+function saveSimplePayment(e) {
+  e.preventDefault();
+  const empId = document.getElementById('pay-simple-emp').value;
+  const amountVal = document.getElementById('pay-simple-amount').value;
+  const amount = amountVal ? parseFloat(amountVal) : null;
+  const date = document.getElementById('pay-simple-date').value;
+  const periodo = document.getElementById('pay-simple-periodo').value;
+  if (!empId || !date) {
+    showMsg('Selecciona empleado y fecha.', 'error');
+    return;
+  }
+  const data = { employee_id: parseInt(empId, 10), payment_date: date, periodo_tipo: periodo };
+  if (amount != null && amount > 0) data.amount = amount;
+  apiPost(API_PAY, data)
+    .then(() => {
+      modalHide('modal-pay-simple');
+      showMsg('Pago registrado.', 'success');
+      loadReportPayments();
+      loadPayslips();
+      loadPaymentsInDesgloses();
+    })
+    .catch(err => showMsg(err.message || 'Error al guardar', 'error'));
 }
 
 function fillReportEmpSelect() {
   const sel = document.getElementById('report-emp');
   if (!sel) return;
   const current = sel.value;
-  sel.innerHTML = '<option value="">-- Seleccionar empleado --</option>';
+  sel.innerHTML = '<option value="">Todos</option>';
   (employees || []).forEach(e => {
     sel.innerHTML += '<option value="' + e.id + '">' + (e.name || '') + '</option>';
   });
   if (current) sel.value = current;
 }
 
-function loadEmployeeReport() {
+function setReportPeriod(val) {
+  const today = new Date();
+  const toStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  let fromStr = '';
+  if (val === '1m') {
+    const d = new Date(today); d.setMonth(d.getMonth() - 1);
+    fromStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  } else if (val === '3m') {
+    const d = new Date(today); d.setMonth(d.getMonth() - 3);
+    fromStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  } else if (val === '6m') {
+    const d = new Date(today); d.setMonth(d.getMonth() - 6);
+    fromStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  } else if (val === '1y') {
+    fromStr = today.getFullYear() + '-01-01';
+  }
+  const fromEl = document.getElementById('report-from');
+  const toEl = document.getElementById('report-to');
+  if (fromEl) fromEl.value = fromStr;
+  if (toEl) toEl.value = toStr;
+  loadReportPayments();
+}
+
+function loadReportPayments() {
   const empId = document.getElementById('report-emp') ? document.getElementById('report-emp').value : '';
   const fromEl = document.getElementById('report-from');
   const toEl = document.getElementById('report-to');
-  const from = fromEl ? fromEl.value : '';
-  const to = toEl ? toEl.value : '';
+  let from = fromEl ? fromEl.value : '';
+  let to = toEl ? toEl.value : '';
   const loading = document.getElementById('report-loading');
   const content = document.getElementById('report-content');
-  if (!empId) {
-    if (content) { content.style.display = 'none'; content.innerHTML = ''; }
-    updateReportPdfLink();
+  if (!from && !to) {
+    setReportPeriod('3m');
     return;
   }
+  if (empId) {
+    loadEmployeeReportDetail(empId, from, to, loading, content);
+    return;
+  }
+  loading.style.display = 'block';
+  content.style.display = 'none';
+  let url = API_PAY + '?';
+  if (from) url += 'from_date=' + encodeURIComponent(from) + '&';
+  if (to) url += 'to_date=' + encodeURIComponent(to);
+  apiGet(url).then(data => {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+    const list = data || [];
+    const tipoLabels = { mensual: 'Mensual', quincenal: 'Quincenal', semanal: 'Semanal', diario: 'Días', por_hora: 'Horas' };
+    let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Fecha</th><th>Empleado</th><th>Tipo</th><th>Período</th><th class="text-end">Monto (₡)</th><th></th></tr></thead><tbody>';
+    list.forEach(p => {
+      const tipoPago = tipoLabels[p.periodo_tipo] || p.periodo_tipo || '-';
+      let period = (p.period_start ? (typeof p.period_start === 'string' ? p.period_start.split('T')[0] : p.period_start) : '') + (p.period_end ? ' a ' + (typeof p.period_end === 'string' ? p.period_end.split('T')[0] : p.period_end) : '');
+      if (!period) period = '-';
+      const fecha = p.payment_date ? (typeof p.payment_date === 'string' ? p.payment_date.split('T')[0] : p.payment_date) : '-';
+      const basePay = (API_PAY && API_PAY.endsWith('/')) ? API_PAY.slice(0, -1) : (API_PAY || '/api/payroll/payments');
+      const pdfBtn = '<a href="' + basePay + '/' + p.id + '/payslip-pdf" class="btn btn-sm btn-outline-primary" target="_blank" title="PDF"><i class="bi bi-file-pdf"></i></a>';
+      html += '<tr><td>' + fecha + '</td><td>' + (p.employee_name || '-') + '</td><td><span class="badge bg-secondary">' + tipoPago + '</span></td><td>' + period + '</td><td class="text-end">₡ ' + (p.amount != null ? Number(p.amount).toLocaleString('es-CR', {minimumFractionDigits: 2}) : '-') + '</td><td>' + pdfBtn + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    content.innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay pagos en el período seleccionado.</p>';
+    updateReportPdfLink();
+  }).catch(err => {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = '<p class="text-danger">Error: ' + (err.message || 'No se pudo cargar') + '</p>';
+    updateReportPdfLink();
+  });
+}
+
+function loadEmployeeReportDetail(empId, from, to, loading, content) {
   loading.style.display = 'block';
   content.style.display = 'none';
   let url = '/api/payroll/employees/' + empId + '/report';
@@ -1905,12 +1775,12 @@ function updateReportPdfLink() {
 }
 
 function updateSummaryLink() {
-  const loc = document.getElementById('summary-loc');
-  const start = document.getElementById('summary-start').value;
-  const end = document.getElementById('summary-end').value;
+  const loc = document.getElementById('filter-ps-loc');
+  const start = (document.getElementById('filter-ps-start') || {}).value;
+  const end = (document.getElementById('filter-ps-end') || {}).value;
   const link = document.getElementById('summary-pdf-link');
-  const o = loc && loc.selectedIndex >= 0 ? loc.options[loc.selectedIndex] : null;
-  const locName = (o && o.dataset && o.dataset.loc) ? o.dataset.loc : (loc && loc.value ? loc.value.split('|')[0] : '');
+  if (!link) return;
+  const locName = (loc && loc.value) ? loc.value : '';
   if (locName && start && end) {
     link.href = '/api/payroll/payslips/summary-pdf?location_name=' + encodeURIComponent(locName) + '&period_start=' + start + '&period_end=' + end;
     link.classList.remove('disabled');
@@ -1938,17 +1808,17 @@ function importExcel() {
 
 function initPlanilla() {
   try {
-    const startEl = document.getElementById('summary-start');
-    const endEl = document.getElementById('summary-end');
-    if (startEl) startEl.addEventListener('change', updateSummaryLink);
-    if (endEl) endEl.addEventListener('change', updateSummaryLink);
-
+    document.getElementById('planilla-tabs')?.addEventListener('shown.bs.tab', function(ev) {
+      if (ev.target && ev.target.getAttribute('data-bs-target') === '#tab-reporte-empleado') {
+        const fromEl = document.getElementById('report-from');
+        if (fromEl && !fromEl.value) setReportPeriod('3m');
+      }
+    });
     loadLocations().then(() => apiGet(API_EMP)).then(data => {
       employees = Array.isArray(data) ? data : [];
       loadEmployees();
       loadEntries();
       loadPayslips();
-      loadPayments();
       loadSummaryPeriods();
     }).catch(e => {
       showMsg('Error: ' + (e.message || 'cargando datos'), 'error');
