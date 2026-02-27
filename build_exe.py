@@ -11,6 +11,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def main():
+    # Crear icono si no existe (opcional)
+    icon_path = PROJECT_ROOT / "icon.ico"
+    if not icon_path.exists():
+        try:
+            print("Creando icono...")
+            subprocess.check_call([sys.executable, str(PROJECT_ROOT / "scripts" / "crear_icono.py")], cwd=str(PROJECT_ROOT))
+        except Exception:
+            print("(Icono omitido, continuando...)")
+
     try:
         import PyInstaller
     except ImportError:

@@ -5,7 +5,7 @@
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
 <div class="card mb-3">
   <div class="card-body">
-    <p class="text-muted small mb-2">Catálogo estándar por franquiciado. Cada ubicación tiene su propio stock.</p>
+    <p class="text-muted small mb-2">Catálogo por casa. Cada casa tiene su propio stock.</p>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
       <button type="button" class="btn btn-sm btn-primary" onclick="openInvForm()">Nuevo ítem</button>
       <span class="text-muted small">Doble clic en una fila para editar</span>
@@ -19,11 +19,11 @@
           {% endif %}
           {% endfor %}
           {% if not franchisees_list or franchisees_list|length < 2 %}
-          <li><span class="dropdown-item text-muted">Crea otro franquiciado primero</span></li>
+          <li><span class="dropdown-item text-muted">Crea otra casa primero</span></li>
           {% endif %}
         </ul>
       </div>
-      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-secondary">Exportar pedidos CSV</a>
+      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv" class="btn btn-sm btn-outline-secondary">Exportar pedidos CSV</a>
     </div>
     <div class="d-flex flex-wrap gap-2 mb-2">
       <select id="filter-area" class="form-select form-select-sm" style="max-width:120px" onchange="loadInv()">
@@ -57,12 +57,12 @@
 <div class="card">
   <div class="card-body">
     <h5 class="card-title mb-2">Alertas</h5>
-    <p class="text-muted small mb-2">Items con stock &lt; 10% o cero (resaltados en rojo en la tabla)</p>
+    <p class="text-muted small mb-2">Items donde Existencia &lt; Stock (pedido sugerido = Stock − Existencia)</p>
     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
       <a href="{{ url_for('web.compras') }}?openOrder=1" class="btn btn-sm btn-primary">
         <i class="bi bi-cart-plus me-1"></i>Ir a Compras para rellenar faltantes
       </a>
-      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv&amp;threshold=0.1" class="btn btn-sm btn-outline-danger">Exportar lista completa (CSV)</a>
+      <a href="{{ url_for('inventory.report_low_stock') }}?format=csv" class="btn btn-sm btn-outline-danger">Exportar lista completa (CSV)</a>
       <span class="text-muted small">o por proveedor:</span>
       <select id="export-by-supplier" class="form-select form-select-sm" style="max-width:220px" onchange="exportBySupplier(this.value)">
         <option value="">-- Seleccionar proveedor --</option>
@@ -309,7 +309,7 @@ function loadInv() {
         items.forEach(i => {
           var stock = i.stock != null ? parseFloat(i.stock) : 0;
           var existence = i.existence != null ? parseFloat(i.existence) : 0;
-          var isLow = stock === 0 || existence === 0 || (stock > 0 && existence < stock * 0.1);
+          var isLow = existence < stock;
           var lowClass = isLow ? ' inv-row-low' : '';
           html += '<tr class="inv-row-editable' + lowClass + '" ondblclick="editInv(' + i.id + ')" title="Doble clic para editar"><td>' + i.id + '</td><td>' + (i.code || '') + '</td><td>' + (i.area || '') + '</td><td>' + (i.product_name || '') + '</td><td>' + (i.unit || 'UND') + '</td><td>' + (i.existence != null ? i.existence : '-') + '</td><td>' + (i.stock != null ? i.stock : '-') + '</td><td>' + (i.responsible || '') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); editInv(' + i.id + ')">Editar</button></td></tr>';
         });
@@ -474,7 +474,7 @@ function toggleAlertGroup(id) {
     toggleSpan.textContent = isCollapsed ? '+' : '−';
   }
 }
-apiGet(API_INV + '/report?threshold=0.1').then(data => {
+apiGet(API_INV + '/report').then(data => {
   document.getElementById('low-stock-loading').style.display = 'none';
   document.getElementById('low-stock-content').style.display = 'block';
   const items = (data && data.items) || [];
@@ -518,10 +518,9 @@ apiGet(API_INV + '/report?threshold=0.1').then(data => {
       html += '<div class="alert-group-header" onclick="toggleAlertGroup(\'' + id + '\')"><span class="alert-group-toggle">' + (idx > 0 ? '+' : '−') + '</span> ' + (sup === 'Sin proveedor' ? 'Sin proveedor' : sup) + ' <span style="opacity:0.9; font-weight:normal;">(' + groupItems.length + ')</span>' + contactInfo + '</div>';
       html += '<div class="alert-group-body"><div class="d-flex justify-content-end mb-2">';
       html += '<a href="' + comprasUrl + '" class="btn btn-sm btn-primary"><i class="bi bi-cart-plus me-1"></i>Ordenar a este proveedor</a></div>';
-      html += '<div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>Producto</th><th>Existencia</th><th>Stock</th><th>%</th><th>Pedido sugerido</th></tr></thead><tbody>';
+      html += '<div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>Producto</th><th>Existencia</th><th>Stock</th><th>Pedido sugerido</th></tr></thead><tbody>';
       groupItems.forEach(i => {
-        const pct = i.percentage != null ? i.percentage + '%' : '-';
-        html += '<tr class="inv-row-low"><td>' + (i.product_name || '') + '</td><td>' + (i.existence ?? '-') + '</td><td>' + (i.stock ?? '-') + '</td><td>' + pct + '</td><td>' + (i.suggested_order ?? '-') + '</td></tr>';
+        html += '<tr class="inv-row-low"><td>' + (i.product_name || '') + '</td><td>' + (i.existence ?? '-') + '</td><td>' + (i.stock ?? '-') + '</td><td>' + (i.suggested_order ?? '-') + '</td></tr>';
       });
       html += '</tbody></table></div></div></div>';
     });
@@ -542,7 +541,7 @@ apiGet(API_INV + '/alerts').then(data => {
   let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>Fecha</th><th>Umbral</th><th>Ítems</th><th></th></tr></thead><tbody>';
   list.slice(0, 10).forEach(a => {
     const date = a.created_at ? new Date(a.created_at).toLocaleString() : '-';
-    html += '<tr><td>' + date + '</td><td>' + (a.threshold != null ? (a.threshold * 100) + '%' : '-') + '</td><td>' + (a.item_count || 0) + '</td><td><a href="' + API_INV + '/alerts/' + a.id + '/export" class="btn btn-sm btn-outline-secondary">CSV</a></td></tr>';
+    html += '<tr><td>' + date + '</td><td>Existencia &lt; Stock</td><td>' + (a.item_count || 0) + '</td><td><a href="' + API_INV + '/alerts/' + a.id + '/export" class="btn btn-sm btn-outline-secondary">CSV</a></td></tr>';
   });
   html += '</tbody></table></div>';
   document.getElementById('alerts-content').innerHTML = html || '<p>No hay alertas.</p>';

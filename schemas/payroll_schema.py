@@ -29,6 +29,7 @@ class PayrollEntrySchema(ma.SQLAlchemySchema):
     entry_type = ma.auto_field()
     code = ma.auto_field()
     hrs_extra = ma.auto_field()
+    hrs_negativas = ma.auto_field()
     creditos_comida = ma.auto_field()
     vale_efectivo = ma.auto_field()
     ccss_rebajos = ma.auto_field()

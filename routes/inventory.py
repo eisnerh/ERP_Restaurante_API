@@ -23,8 +23,7 @@ suppliers_schema = SupplierSchema(many=True)
 unit_schema = UnitSchema()
 units_schema = UnitSchema(many=True)
 
-# Umbral por defecto: 10% del stock (inventario bajo cuando existencia < 10% de stock)
-DEFAULT_LOW_STOCK_THRESHOLD = 0.10
+# Inventario bajo cuando existencia < stock (pedido sugerido = stock - existencia)
 
 # Ruta por defecto del Excel (relativa al directorio del proyecto)
 DEFAULT_EXCEL_PATH = os.path.join(
@@ -35,9 +34,7 @@ DEFAULT_EXCEL_PATH = os.path.join(
 
 
 def _get_low_stock_items(threshold=None, franchisee_id=None):
-    """Ítems con existencia < threshold * stock, o stock=0, o existencia=0. Filtra por franchisee_id si se indica."""
-    if threshold is None:
-        threshold = DEFAULT_LOW_STOCK_THRESHOLD
+    """Ítems con existencia < stock. Pedido sugerido = stock - existencia. Filtra por franchisee_id si se indica."""
     query = InventoryItem.query
     if franchisee_id is not None:
         query = query.filter_by(franchisee_id=franchisee_id)
@@ -47,10 +44,10 @@ def _get_low_stock_items(threshold=None, franchisee_id=None):
         stock_val = float(it.stock or 0)
         existence_val = float(it.existence or 0)
         pct = (existence_val / stock_val) * 100.0 if stock_val else 0
-        # Alerta: stock=0, existencia=0, o existencia < 10% del stock
-        is_low = stock_val == 0 or existence_val == 0 or existence_val < threshold * stock_val
+        # Alerta: existencia < stock (la diferencia es el pedido sugerido)
+        is_low = existence_val < stock_val
         if is_low:
-            suggested = it.order_quantity if it.order_quantity is not None else max(0.0, stock_val - existence_val)
+            suggested = max(0.0, stock_val - existence_val)
             supplier_names = [s.name for s in it.suppliers] if it.suppliers else []
             if it.supplier and it.supplier.strip():
                 supplier_names = supplier_names + [it.supplier.strip()]
@@ -761,16 +758,13 @@ def import_from_excel():
 @inventory_bp.route("/report", methods=["GET"])
 def report_low_stock():
     """
-    Reporte de ítems con inventario bajo (existencia < threshold * stock).
-    Query: ?threshold=0.1 (default 10%), ?format=json|csv, ?supplier=Nombre (filtrar por proveedor)
+    Reporte de ítems con existencia < stock. Pedido sugerido = stock - existencia.
+    Query: ?format=json|csv, ?supplier=Nombre (filtrar por proveedor)
     """
-    threshold = request.args.get("threshold", type=float)
-    if threshold is None or threshold <= 0 or threshold > 1:
-        threshold = DEFAULT_LOW_STOCK_THRESHOLD
     supplier_filter = request.args.get("supplier", "").strip()
     fmt = (request.args.get("format") or "json").lower()
     fid = get_or_default_franchisee_id()
-    items = _get_low_stock_items(threshold, fid)
+    items = _get_low_stock_items(franchisee_id=fid)
     if supplier_filter:
         if supplier_filter.lower() == "sin proveedor":
             items = [it for it in items if not (it.get("supplier") or "").strip()]
@@ -778,7 +772,6 @@ def report_low_stock():
             items = [it for it in items if it.get("supplier") and supplier_filter.lower() in (it.get("supplier") or "").lower()]
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
-        "threshold_percent": round(threshold * 100, 1),
         "count": len(items),
         "items": items,
     }
@@ -838,22 +831,16 @@ def _report_as_csv(payload, include_supplier_contact=True):
 @inventory_bp.route("/check-low-stock", methods=["POST"])
 def check_and_notify_low_stock():
     """
-    Evalúa inventario bajo (existencia < 10% del stock), crea una notificación (alerta)
-    y devuelve el reporte. Body opcional: { "threshold": 0.1 }
+    Evalúa inventario bajo (existencia < stock), crea una notificación (alerta)
+    y devuelve el reporte.
     """
-    data = request.get_json() or {}
-    threshold = data.get("threshold")
-    if threshold is None:
-        threshold = DEFAULT_LOW_STOCK_THRESHOLD
-    elif not isinstance(threshold, (int, float)) or threshold <= 0 or threshold > 1:
-        threshold = DEFAULT_LOW_STOCK_THRESHOLD
     fid = get_or_default_franchisee_id()
     if not fid:
-        return jsonify({"error": "Selecciona un franquiciado"}), 400
-    items = _get_low_stock_items(threshold, fid)
+        return jsonify({"error": "Selecciona una casa"}), 400
+    items = _get_low_stock_items(franchisee_id=fid)
     alert = InventoryAlert(
         franchisee_id=fid,
-        threshold=threshold,
+        threshold=0,
         item_count=len(items),
         items_snapshot=items,
     )

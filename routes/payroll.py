@@ -440,7 +440,7 @@ def employee_report(emp_id):
                 deductions_by_concept[key] = deductions_by_concept.get(key, 0) + (line.amount or 0)
 
     total_paid = sum((p.amount or 0) for p in payments)
-    total_deductions = sum(deductions_by_concept.values())
+    total_deductions = abs(sum(deductions_by_concept.values()))  # amounts son negativos
 
     return jsonify({
         "employee": employee_schema.dump(emp),
@@ -524,7 +524,7 @@ def employee_report_pdf(emp_id):
                 deductions_by_concept[key] = deductions_by_concept.get(key, 0) + (line.amount or 0)
 
     total_paid = sum((p.amount or 0) for p in payments)
-    total_deductions = sum(deductions_by_concept.values())
+    total_deductions = abs(sum(deductions_by_concept.values()))  # amounts son negativos
 
     report_data = {
         "employee": employee_schema.dump(emp),
@@ -539,7 +539,7 @@ def employee_report_pdf(emp_id):
                 "period_end": p.period_end.isoformat() if p.period_end else None,
                 "hours_worked": p.hours_worked,
                 "days_worked": p.days_worked,
-                "location_name": p.location.name if p.location else None,
+                "location_name": (p.location.name if p.location else None) or "-",
             }
             for p in payments
         ],
@@ -548,7 +548,10 @@ def employee_report_pdf(emp_id):
         "total_deductions": round(total_deductions, 2),
         "net": round(total_paid - total_deductions, 2),
     }
-    pdf_bytes = build_employee_report_pdf(report_data)
+    try:
+        pdf_bytes = build_employee_report_pdf(report_data)
+    except Exception as e:
+        return jsonify({"error": f"Error al generar PDF: {e}"}), 500
     f_str = (from_date.isoformat() if from_date else "all")
     t_str = (to_date.isoformat() if to_date else "all")
     filename = f"reporte_empleado_{emp_id}_{f_str}_{t_str}.pdf"
@@ -557,6 +560,38 @@ def employee_report_pdf(emp_id):
         mimetype="application/pdf",
         headers={"Content-Disposition": f"inline; filename={filename}"},
     )
+
+
+@payroll_bp.route("/vacation-records-report", methods=["GET"])
+def vacation_records_report():
+    """
+    Reporte de vacaciones disfrutadas.
+    Query: from_date=YYYY-MM-DD, to_date=YYYY-MM-DD, employee_id= (opcional).
+    Devuelve registros con nombre del empleado incluido.
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    from_date = _parse_date_param(request.args.get("from_date"))
+    to_date = _parse_date_param(request.args.get("to_date"))
+    employee_id = request.args.get("employee_id", type=int)
+    emp_ids = [e.id for e in Employee.query.filter_by(franchisee_id=fid).all()]
+    if not emp_ids:
+        return jsonify([])
+    query = VacationRecord.query.filter(VacationRecord.employee_id.in_(emp_ids))
+    if employee_id and employee_id in emp_ids:
+        query = query.filter_by(employee_id=employee_id)
+    if from_date:
+        query = query.filter(VacationRecord.fecha_hasta >= from_date)
+    if to_date:
+        query = query.filter(VacationRecord.fecha_desde <= to_date)
+    records = query.order_by(VacationRecord.fecha_desde.desc()).all()
+    result = []
+    for r in vacation_records_schema.dump(records):
+        emp = Employee.query.get(r["employee_id"])
+        r["employee_name"] = emp.name if emp else ""
+        result.append(r)
+    return jsonify(result)
 
 
 @payroll_bp.route("/employees/<int:emp_id>/vacation-records", methods=["GET", "POST"])
@@ -572,9 +607,19 @@ def employee_vacation_records(emp_id):
     data = request.get_json() or {}
     data["employee_id"] = emp_id
     for f in ("fecha_desde", "fecha_hasta"):
-        if f in data:
-            data[f] = _parse_date_param(data[f]) if data[f] else None
-    rec = vacation_record_schema.load(data, session=db.session)
+        if f in data and data[f]:
+            data[f] = _parse_date_param(data[f])
+        elif f in data:
+            data[f] = None
+    if not data.get("fecha_desde") or not data.get("fecha_hasta"):
+        return jsonify({"error": "fecha_desde y fecha_hasta son obligatorios"}), 400
+    dias = _to_float(data.get("dias_tomados"))
+    if dias is None or dias <= 0:
+        return jsonify({"error": "dias_tomados debe ser mayor a 0"}), 400
+    try:
+        rec = vacation_record_schema.load(data, session=db.session)
+    except Exception as e:
+        return jsonify({"error": str(e) or "Datos inválidos"}), 400
     db.session.add(rec)
     # Los días se deducen automáticamente desde vacation_records (Employee.vacation_days)
     db.session.commit()
@@ -843,6 +888,7 @@ def import_payroll_excel():
             entry_type=e.get("entry_type", "employee"),
             code=e.get("code"),
             hrs_extra=e.get("hrs_extra"),
+            hrs_negativas=e.get("hrs_negativas"),
             creditos_comida=e.get("creditos_comida") or 0,
             vale_efectivo=e.get("vale_efectivo"),
             ccss_rebajos=e.get("ccss_rebajos"),
@@ -880,7 +926,7 @@ def export_payroll_excel():
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     headers = [
-        "Fecha Planilla", "Codigo", "Empleado", "Tipo", "Hrs Extra", "Creditos Comida", "Vale Efectivo",
+        "Fecha Planilla", "Codigo", "Empleado", "Tipo", "Hrs Extra", "Hrs Negativas", "Creditos Comida", "Vale Efectivo",
         "CCSS/Rebajos", "Dia PSG", "Incapacidades", "Numero Cuenta", "Fecha Ingreso", "Notas"
     ]
     query = PayrollLocation.query.filter_by(franchisee_id=fid) if fid else PayrollLocation.query.filter(False)
@@ -902,6 +948,7 @@ def export_payroll_excel():
                 e.employee_name,
                 e.entry_type,
                 e.hrs_extra,
+                e.hrs_negativas,
                 e.creditos_comida,
                 e.vale_efectivo,
                 e.ccss_rebajos,
@@ -1058,7 +1105,18 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
             base_salario_periodo = salario_mes or 0
         total_asig = base_salario_periodo
         total_ded = 0
-        lines = []
+        asig_lines = []
+        ded_by_concept = {
+            "Vales": 0, "Días de permiso": 0, "Días de incapacidades": 0,
+            "Consumo vale efectivo": 0, "Facturas crédito": 0, "Otros": 0, "CCSS": 0,
+        }
+
+        def _parse_days_from_str(s):
+            """Extrae número de días de string (ej. '3 días', '2', 'Día 1')."""
+            if not s:
+                return 0
+            m = re.search(r"(\d+)\s*(?:d[ií]a[s]?)?", str(s).strip(), re.I)
+            return float(m.group(1)) if m else 0
 
         for ge in group_entries:
             if ge.entry_type == "mermas":
@@ -1068,30 +1126,41 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
                 if amt == 0:
                     amt = ge.creditos_comida or 0
                 amt = -abs(float(amt)) if amt else 0
-                lines.append({"line_type": "deduccion", "concept": "Mermas (gasto del empleado)", "amount": amt})
-                total_ded += abs(amt)
+                ded_by_concept["Otros"] += abs(amt)
             else:
-                if (ge.hrs_extra or 0) != 0 and salary_hora_extra:
-                    val = ge.hrs_extra * salary_hora_extra
-                    lines.append({"line_type": "asignacion", "concept": "Horas extra", "amount": val, "quantity": ge.hrs_extra})
+                # Horas extra: siempre positivas → asignación
+                hrs_extra_val = max(0, ge.hrs_extra or 0)
+                if hrs_extra_val > 0 and salary_hora_extra:
+                    val = hrs_extra_val * salary_hora_extra
+                    asig_lines.append({"line_type": "asignacion", "concept": "Horas Extras", "amount": val, "quantity": hrs_extra_val})
                     total_asig += val
-                if (ge.creditos_comida or 0) != 0:
-                    val = float(ge.creditos_comida)
-                    lines.append({"line_type": "deduccion", "concept": "Créditos comida", "amount": -abs(val) if val > 0 else val})
-                    total_ded += abs(val) if val > 0 else abs(val)
+                # Horas negativas → deducción (suma a Días de permiso si aplica)
+                hrs_neg = ge.hrs_negativas or 0
+                if hrs_neg > 0 and salary_hora_ord:
+                    val = hrs_neg * salary_hora_ord
+                    ded_by_concept["Días de permiso"] += val
+                # Consumo vale efectivo
                 if (ge.vale_efectivo or 0) != 0:
-                    val = float(ge.vale_efectivo)
-                    lines.append({"line_type": "deduccion", "concept": "Vale efectivo", "amount": -abs(val) if val > 0 else val})
-                    total_ded += abs(val) if val > 0 else abs(val)
+                    val = abs(float(ge.vale_efectivo))
+                    ded_by_concept["Consumo vale efectivo"] += val
+                # Facturas crédito
+                if (ge.creditos_comida or 0) != 0:
+                    val = abs(float(ge.creditos_comida))
+                    ded_by_concept["Facturas crédito"] += val
+                # Otros (ccss_rebajos)
                 if (ge.ccss_rebajos or 0) != 0:
-                    val = float(ge.ccss_rebajos)
-                    lines.append({"line_type": "deduccion", "concept": "CCSS / Rebajos", "amount": -abs(val)})
-                    total_ded += abs(val)
+                    ded_by_concept["Otros"] += abs(float(ge.ccss_rebajos))
+                # Días de permiso (dia_psg) y incapacidades
+                dias_perm = _parse_days_from_str(ge.dia_psg)
+                dias_incap = _parse_days_from_str(ge.incapacidades)
+                if dias_perm > 0 and salary_dia:
+                    ded_by_concept["Días de permiso"] += dias_perm * salary_dia
+                if dias_incap > 0 and salary_dia:
+                    ded_by_concept["Días de incapacidades"] += dias_incap * salary_dia
 
-        # Deducción CCSS automática si no viene en registros (ley CR) y el puesto tiene aplicar_ccss=True
-        has_ccss = any("CCSS" in str(l.get("concept", "")) for l in lines)
-        aplicar_ccss = pos is None or getattr(pos, "aplicar_ccss", True)  # default True si no existe el campo
-        if not has_ccss and salario_mes and aplicar_ccss:
+        # CCSS automática
+        aplicar_ccss = pos is None or getattr(pos, "aplicar_ccss", True)
+        if salario_mes and aplicar_ccss:
             ccss_pct = None
             if pos and pos.ccss_pct is not None:
                 ccss_pct = pos.ccss_pct
@@ -1102,15 +1171,24 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
                 if dt_ccss and dt_ccss.rate_pct is not None:
                     ccss_pct = dt_ccss.rate_pct
             if ccss_pct is not None:
-                base_ccss = base_salario_periodo
-                ccss_amt = round(base_ccss * ccss_pct, 2)
+                ccss_amt = round(base_salario_periodo * ccss_pct, 2)
                 if ccss_amt > 0:
-                    lines.append({"line_type": "deduccion", "concept": "CCSS Trabajador", "amount": -ccss_amt})
-                    total_ded += ccss_amt
+                    ded_by_concept["CCSS"] += ccss_amt
 
-        if salario_mes and not any("Salario base" in str(l.get("concept", "")) for l in lines):
-            amt = base_salario_periodo
-            lines.insert(0, {"line_type": "asignacion", "concept": "Salario base", "amount": amt})
+        # Construir líneas en orden fijo
+        # ASIGNACIONES: Salario quincenal, Horas Extras
+        lines = []
+        if salario_mes:
+            lines.append({"line_type": "asignacion", "concept": "Salario quincenal", "amount": base_salario_periodo})
+        for al in asig_lines:
+            lines.append(al)
+
+        # DEDUCCIONES: siempre todas las líneas en orden
+        DED_ORDER = ["Vales", "Días de permiso", "Días de incapacidades", "Consumo vale efectivo", "Facturas crédito", "Otros", "CCSS"]
+        for concept in DED_ORDER:
+            amt = ded_by_concept.get(concept, 0)
+            total_ded += amt
+            lines.append({"line_type": "deduccion", "concept": concept, "amount": -amt if amt > 0 else 0})
 
         total_depositado = total_asig - total_ded
 

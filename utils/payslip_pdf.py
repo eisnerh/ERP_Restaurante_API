@@ -57,34 +57,29 @@ def _build_payslip_flow(payslip, colors, styles, normal, inch):
         f"<b>Colaborador:</b> {payslip.employee_name} &nbsp;&nbsp; <b>Cargo:</b> {payslip.position or '-'} &nbsp;&nbsp; <b>Tipo pago:</b> {tipo_str}",
         normal
     ))
-    flow.append(Spacer(1, 0.15 * inch))
-    sal_data = [
-        ["Desglose del salario", "Valor"],
-        ["Salario mensual", _fmt_money(payslip.salary_mes)],
-        ["Salario quincenal", _fmt_money(payslip.salary_quincena)],
-        ["Salario semanal", _fmt_money(payslip.salary_semana)],
-        ["Salario día", _fmt_money(payslip.salary_dia)],
-        ["Hora ordinaria", _fmt_money(payslip.salary_hora_ordinaria)],
-        ["Hora extra", _fmt_money(payslip.salary_hora_extra)],
-    ]
-    t_sal = Table(sal_data, colWidths=[3 * inch, 1.5 * inch])
-    t_sal.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(DARK_TEAL)),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor(WHITE)),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor(BLACK)),
-        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(BORDER_GRAY)),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor(WHITE), colors.HexColor(LIGHT_GRAY)]),
-    ]))
-    flow.append(t_sal)
     flow.append(Spacer(1, 0.2 * inch))
+
+    # ASIGNACIONES: siempre Salario quincenal, Horas Extras (estructura fija)
+    ASIG_ORDER = ["Salario quincenal", "Horas Extras"]
+    _norm = lambda s: (s or "").strip().lower().replace("ó", "o")
+    asig_by_concept = {}
+    for l in payslip.lines:
+        if l.line_type != "asignacion":
+            continue
+        c = (l.concept or "").strip()
+        key = "Salario quincenal" if _norm(c) in ("salario quincenal", "salario base") else ("Horas Extras" if "hora" in _norm(c) and "extra" in _norm(c) else c)
+        if key not in asig_by_concept:
+            asig_by_concept[key] = {"amount": 0, "quantity": None}
+        asig_by_concept[key]["amount"] += (l.amount or 0)
+        if l.quantity is not None:
+            asig_by_concept[key]["quantity"] = (asig_by_concept[key]["quantity"] or 0) + l.quantity
     asig_rows = [["Concepto", "Cant.", "Monto (₡)"]]
-    asig_lines = sorted([l for l in payslip.lines if l.line_type == "asignacion"], key=lambda x: x.id)
-    for line in asig_lines:
-        qty = str(int(line.quantity)) if line.quantity is not None and line.quantity == int(line.quantity) else (str(line.quantity) if line.quantity else "-")
-        asig_rows.append([line.concept, qty, _fmt_money(line.amount)])
+    for concept in ASIG_ORDER:
+        d = asig_by_concept.get(concept, {"amount": 0, "quantity": None})
+        amt = d["amount"]
+        qty = d["quantity"]
+        qty_str = str(int(qty)) if qty is not None and qty == int(qty) else (str(qty) if qty else "-")
+        asig_rows.append([concept, qty_str, _fmt_money(amt)])
     asig_rows.append(["TOTAL ASIGNACIONES", "", _fmt_money(payslip.total_asignaciones)])
     t_asig = Table(asig_rows, colWidths=[2.5 * inch, 0.8 * inch, 1.5 * inch])
     t_asig.setStyle(TableStyle([
@@ -105,10 +100,36 @@ def _build_payslip_flow(payslip, colors, styles, normal, inch):
     flow.append(Spacer(1, 0.05 * inch))
     flow.append(t_asig)
     flow.append(Spacer(1, 0.15 * inch))
+
+    # DEDUCCIONES: siempre Vales, Días de permiso, Días de incapacidades, Consumo vale efectivo, Facturas crédito, Otros, CCSS
+    DED_ORDER = ["Vales", "Días de permiso", "Días de incapacidades", "Consumo vale efectivo", "Facturas crédito", "Otros", "CCSS"]
+    ded_by_concept = {c: 0 for c in DED_ORDER}
+    for l in payslip.lines:
+        if l.line_type != "deduccion":
+            continue
+        c = (l.concept or "").strip()
+        n = _norm(c)
+        amt = abs(l.amount or 0)
+        if "ccss" in n or "trabajador" in n:
+            ded_by_concept["CCSS"] += amt
+        elif "vale" in n and "efectivo" in n:
+            ded_by_concept["Consumo vale efectivo"] += amt
+        elif "factura" in n or "credito" in n or "comida" in n:
+            ded_by_concept["Facturas crédito"] += amt
+        elif "permiso" in n or "hora" in n and "negativ" in n:
+            ded_by_concept["Días de permiso"] += amt
+        elif "incapacidad" in n:
+            ded_by_concept["Días de incapacidades"] += amt
+        elif "vale" in n:
+            ded_by_concept["Vales"] += amt
+        elif c in DED_ORDER:
+            ded_by_concept[c] += amt
+        else:
+            ded_by_concept["Otros"] += amt
     ded_rows = [["Concepto", "Monto (₡)"]]
-    ded_lines = sorted([l for l in payslip.lines if l.line_type == "deduccion"], key=lambda x: x.id)
-    for line in ded_lines:
-        ded_rows.append([line.concept, _fmt_money(line.amount)])
+    for concept in DED_ORDER:
+        amt = ded_by_concept.get(concept, 0)
+        ded_rows.append([concept, _fmt_money(-amt) if amt > 0 else "₡ 0.00"])
     ded_rows.append(["TOTAL DEDUCCIONES", _fmt_money(payslip.total_deducciones)])
     t_ded = Table(ded_rows, colWidths=[2.5 * inch, 1.5 * inch])
     t_ded.setStyle(TableStyle([

@@ -43,13 +43,13 @@
     <div class="offcanvas-body p-0 d-flex flex-column">
       {% if franchisees_list %}
       <div class="p-3 border-bottom bg-light">
-        <label class="form-label small text-muted mb-1"><i class="bi bi-shop me-1"></i>Franquiciado activo</label>
+        <label class="form-label small text-muted mb-1"><i class="bi bi-shop me-1"></i>Casa activa</label>
         <select class="form-select form-select-sm" id="franchisee-select" onchange="franchiseeChange(this)">
           {% for f in franchisees_list %}
           <option value="{{ f.id }}" {% if current_franchisee_id == f.id %}selected{% endif %}>{{ f.name }}{% if f.code %} ({{ f.code }}){% endif %}</option>
           {% endfor %}
         </select>
-        <p class="small text-muted mb-0 mt-1">Todos los datos se filtran por el franquiciado seleccionado.</p>
+        <p class="small text-muted mb-0 mt-1">Todos los datos se filtran por la casa seleccionada.</p>
       </div>
       {% endif %}
       <nav class="nav flex-column">
@@ -71,7 +71,7 @@
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.compras') }}"><i class="bi bi-cart-check me-2"></i>Compras</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.planilla') }}"><i class="bi bi-people me-2"></i>Planilla</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.control_gastos') }}"><i class="bi bi-cash-stack me-2"></i>Control de gastos</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Franquiciados</a>
+        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Casas de Don Raul</a>
         <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.configuracion') }}"><i class="bi bi-gear me-2"></i>Configuración</a>
       </nav>
     </div>

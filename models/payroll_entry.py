@@ -14,7 +14,8 @@ class PayrollEntry(db.Model):
     employee_name = db.Column(db.String(120), nullable=False)  # Se mantiene para import/display
     entry_type = db.Column(db.String(30), default="empleado")  # empleado|administrador|administrativo|inventario|custom|mermas (legacy)
     code = db.Column(db.String(40))
-    hrs_extra = db.Column(db.Float)           # HRS EXTRAS: positivas o negativas
+    hrs_extra = db.Column(db.Float)           # HRS EXTRAS: siempre positivas
+    hrs_negativas = db.Column(db.Float)       # Horas negativas (día libre, etc.)
     creditos_comida = db.Column(db.Float, default=0)  # Créditos comida (suelen ser negativos)
     vale_efectivo = db.Column(db.Float)
     ccss_rebajos = db.Column(db.Float)        # CCSS / rebajos

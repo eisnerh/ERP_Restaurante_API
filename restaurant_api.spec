@@ -1,11 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec para ERP Restaurant
-# Ejecutar: pyinstaller restaurant_api.spec
+# Ejecutar: python build_exe.py  o  pyinstaller restaurant_api.spec
 
 import sys
+from pathlib import Path
 
-# En Windows, usar ; como separador para datas
-sep = ';' if sys.platform == 'win32' else ':'
+# Icono opcional
+_icon = Path('icon.ico')
+icon_param = str(_icon) if _icon.exists() else None
 
 a = Analysis(
     ['run.py'],
@@ -29,7 +31,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['IPython', 'matplotlib', 'jedi', 'parso', 'PIL.ImageQt', 'tkinter'],
     noarchive=False,
     optimize=0,
 )
@@ -55,5 +57,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Puedes añadir 'icon.ico' si tienes un icono
+    icon=icon_param,
 )

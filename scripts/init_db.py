@@ -43,14 +43,17 @@ def create_tables():
     with app.app_context():
         db.create_all()
         if Franchisee.query.count() == 0:
-            default = Franchisee(
-                code="001",
-                name="Franquiciado Principal",
-                active=True,
-            )
-            db.session.add(default)
+            casas = [
+                ("001", "Casa Plaza San Carlos"),
+                ("002", "Casa del Mirador"),
+                ("003", "Casa del Brunch"),
+                ("004", "Casa del Pan artesanal"),
+                ("005", "Casa del Coronado"),
+            ]
+            for code, name in casas:
+                db.session.add(Franchisee(code=code, name=name, active=True))
             db.session.commit()
-            print("   Franquiciado por defecto creado: Franquiciado Principal")
+            print("   Casas de Don Raul creadas: Plaza San Carlos, Mirador, Brunch, Pan artesanal, Coronado")
         from sqlalchemy import inspect
         insp = inspect(db.engine)
         return sorted(insp.get_table_names())

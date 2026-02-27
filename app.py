@@ -134,8 +134,15 @@ def create_app(config_class=Config):
         db.create_all()
         from models import Franchisee, Holiday
         if Franchisee.query.count() == 0:
-            default = Franchisee(code="001", name="Franquiciado Principal", active=True)
-            db.session.add(default)
+            casas = [
+                ("001", "Casa Plaza San Carlos"),
+                ("002", "Casa del Mirador"),
+                ("003", "Casa del Brunch"),
+                ("004", "Casa del Pan artesanal"),
+                ("005", "Casa del Coronado"),
+            ]
+            for code, name in casas:
+                db.session.add(Franchisee(code=code, name=name, active=True))
             db.session.commit()
         # Sincronizar feriados al iniciar (año actual y siguiente)
         try:

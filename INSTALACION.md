@@ -28,13 +28,19 @@ Debe mostrar algo como `Python 3.11.x` o superior.
 
 ---
 
-## Paso 2: Copiar el proyecto al equipo del cliente
+## Paso 2: Copiar el proyecto (define dónde se instala)
 
-Copia toda la carpeta del proyecto (por ejemplo `restaurant_api`) al equipo. Puede ser:
+**La aplicación se instala donde copies la carpeta del proyecto.** No hay un "Program Files" ni ubicación fija: tú eliges.
 
-- En una carpeta local: `C:\ERP\restaurant_api`
-- En una unidad de red
-- Descomprimir un archivo ZIP con el proyecto
+Copia toda la carpeta del proyecto al equipo, por ejemplo:
+
+| Ubicación | Uso típico |
+|-----------|------------|
+| `C:\ERP\restaurant_api` | Instalación local en el servidor |
+| `D:\Aplicaciones\ERP` | Si prefieres otro disco |
+| `\\Servidor\ERP` | Carpeta de red compartida |
+
+**Importante:** Ejecuta `instalar.bat` desde esa misma carpeta. El instalador mostrará la ruta al inicio.
 
 Abre la terminal en esa carpeta:
 
@@ -169,7 +175,62 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Tabla empleados y vínculo desgloses (BD existente) | `python scripts/migrate_add_employees.py` |
 | Puestos y deducciones estándar global (BD existente) | `python scripts/migrate_standard_positions_deductions.py` |
 | Campos HR empleados (cédula, salario, vacaciones) | `python scripts/migrate_hr_employee_fields.py` |
+| Columna hrs_negativas en planilla | `python scripts/migrate_hrs_negativas.py` |
 | Datos de menú (opcional) | `python seed.py` |
+
+---
+
+## Instalador automático (recomendado para clientes)
+
+Para instalar todo en un equipo nuevo (Python, dependencias, base de datos, acceso directo):
+
+1. Copia la carpeta del proyecto donde quieras (ej. `C:\ERP\restaurant_api`)
+2. Entra en esa carpeta y doble clic en `instalar.bat`
+3. O en PowerShell: `cd C:\ERP\restaurant_api` y luego `.\instalar.bat`
+
+**Dónde se instala:** En la misma carpeta donde está el proyecto. El instalador lo muestra al inicio.
+
+El instalador:
+- Descarga e instala Python si no está (vía winget)
+- Detecta PostgreSQL y abre la descarga si falta
+- Crea el entorno virtual e instala dependencias
+- Crea `.env` y **solicita la contraseña de PostgreSQL** para guardarla
+- **Crea la base de datos** `restaurant_erp` y todas las tablas automáticamente
+- Ejecuta migraciones
+- Genera el icono y crea acceso directo en el escritorio
+
+Realiza los mismos pasos que la guía manual (ver abajo).
+
+---
+
+## Paso a paso manual (mismo resultado que el instalador)
+
+Si prefieres instalar manualmente, sigue estos pasos en orden. El resultado será idéntico al del instalador.
+
+| Paso | Acción | Comando o acción |
+|------|--------|------------------|
+| 1 | Instalar Python 3.8+ | Descargar de [python.org](https://www.python.org/downloads/), marcar "Add to PATH" |
+| 2 | Instalar PostgreSQL | Descargar de [postgresql.org](https://www.postgresql.org/download/), anotar contraseña de `postgres` |
+| 3 | Copiar proyecto | Ej. `C:\ERP\restaurant_api` |
+| 4 | Crear entorno virtual | `python -m venv venv` |
+| 5 | Activar venv | `.\venv\Scripts\Activate.ps1` |
+| 6 | Instalar dependencias | `pip install -r requirements.txt` |
+| 7 | Crear .env | `Copy-Item .env.example .env` |
+| 8 | Configurar contraseña | Editar `.env`, cambiar `PGPASSWORD=1234` por tu contraseña de PostgreSQL |
+| 9 | **Crear base de datos** | `python scripts/init_db.py` — crea la BD `restaurant_erp` y todas las tablas |
+| 10 | Migraciones | `python scripts/migrate_hrs_negativas.py` |
+| 11 | Crear icono (opcional) | `python scripts/crear_icono.py` |
+| 12 | Ejecutar app | `python app.py` o doble clic en `iniciar_erp.bat` |
+
+### Detalle del paso 9: Creación de la base de datos
+
+El script `init_db.py` hace dos cosas automáticamente:
+
+1. **Crea la base de datos** `restaurant_erp` en PostgreSQL (si no existe). Se conecta al servidor PostgreSQL con las credenciales de `.env` y ejecuta `CREATE DATABASE`.
+
+2. **Crea todas las tablas** (categories, clients, dishes, employees, payroll_entries, etc.) y las "Casas de Don Raul" por defecto.
+
+No necesitas crear la base de datos manualmente en pgAdmin ni en la consola de PostgreSQL. El script lo hace por ti.
 
 ---
 
@@ -205,6 +266,8 @@ El archivo `dist/ERP_Restaurant.exe` se creará. Para usarlo:
 | Puerto 5000 en uso | Edita `app.py` y cambia `port=5000` por `port=5001` |
 | No se ven los datos | Ejecuta `python scripts/import_inventory_excel.py --franchisee-id 1` para cargar inventario |
 | Error "no existe la columna purchase_price" | Ejecuta: `python scripts/migrate_add_purchase_price.py` |
+| Error en planilla (hrs_negativas) | Ejecuta: `python scripts/migrate_hrs_negativas.py` |
+| ¿Dónde está instalado? | Donde copiaste la carpeta del proyecto. El instalador muestra la ruta al inicio y al final. |
 
 ---
 
