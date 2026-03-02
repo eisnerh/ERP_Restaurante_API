@@ -42,6 +42,22 @@ def create_tables():
 
     with app.app_context():
         db.create_all()
+        # Tipos de registro de planilla (empleado, mermas, por contrato, etc.)
+        from models import PayrollEntryType
+        if PayrollEntryType.query.count() == 0:
+            for d in [
+                {"code": "empleado", "name": "Empleado", "description": "Empleado en planilla", "display_order": 0, "hide_puesto": False},
+                {"code": "mermas", "name": "Mermas", "description": "Gasto por mermas que se deduce del empleado", "display_order": 1, "hide_puesto": True},
+                {"code": "por_contrato", "name": "Por contrato", "description": "Servicios por contrato", "display_order": 2, "hide_puesto": False},
+                {"code": "servicios_profesionales", "name": "Servicios profesionales", "description": "Honorarios profesionales", "display_order": 3, "hide_puesto": False},
+                {"code": "administrador", "name": "Administrador", "description": "Personal administrativo", "display_order": 4, "hide_puesto": False},
+                {"code": "administrativo", "name": "Administrativo", "description": "Personal administrativo", "display_order": 5, "hide_puesto": False},
+                {"code": "inventario", "name": "Inventario", "description": "Personal de inventario", "display_order": 6, "hide_puesto": False},
+                {"code": "custom", "name": "Personalizado", "description": "Tipo personalizado", "display_order": 99, "hide_puesto": False},
+            ]:
+                db.session.add(PayrollEntryType(**d))
+            db.session.commit()
+            print("   Tipos de registro creados: Empleado, Mermas, Por contrato, Servicios profesionales, etc.")
         if Franchisee.query.count() == 0:
             casas = [
                 ("001", "Casa Plaza San Carlos"),

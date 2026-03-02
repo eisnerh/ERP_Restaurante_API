@@ -162,7 +162,6 @@ def update_order(order_id):
                 if inv:
                     qty = float(item.quantity or 0)
                     inv.existence = float(inv.existence or 0) + qty
-                    inv.stock = float(inv.stock or 0) + qty
                     if item.unit_price and item.unit_price > 0:
                         inv.purchase_price = item.unit_price
     if can_edit_full and "order_date" in data:

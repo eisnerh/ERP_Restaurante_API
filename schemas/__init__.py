@@ -8,7 +8,7 @@ from .inventory_alert_schema import InventoryAlertSchema
 from .supplier_schema import SupplierSchema
 from .client_schema import ClientSchema
 from .purchase_schema import PurchaseOrderSchema, PurchaseOrderItemSchema
-from .payroll_schema import PayrollLocationSchema, PayrollEntrySchema
+from .payroll_schema import PayrollLocationSchema, PayrollEntrySchema, PayrollEntryTypeSchema
 from .position_schema import PositionSchema
 from .deduction_type_schema import DeductionTypeSchema
 from .employee_schema import EmployeeSchema
@@ -33,6 +33,7 @@ __all__ = [
     "PurchaseOrderItemSchema",
     "PayrollLocationSchema",
     "PayrollEntrySchema",
+    "PayrollEntryTypeSchema",
     "PositionSchema",
     "DeductionTypeSchema",
     "EmployeeSchema",

@@ -65,6 +65,56 @@
 </div>
 <div class="card mt-4">
   <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-file-earmark-excel me-2"></i>Plantillas Excel</h5>
+    <p class="text-muted small mb-3">Descarga archivos Excel con el formato correcto para importar inventario, planilla, casas, menú, clientes y más. Consulta FORMATOS_EXCEL.md en la documentación.</p>
+    <div class="d-flex flex-wrap gap-2 mb-4">
+      <a href="{{ url_for('settings.download_excel_templates') }}" class="btn btn-outline-primary" download>
+        <i class="bi bi-download me-1"></i> Descargar plantillas Excel (ZIP)
+      </a>
+    </div>
+    <h6 class="mb-2">Importar desde Excel</h6>
+    <form id="form-import-excel" class="d-flex flex-wrap gap-2 align-items-end flex-wrap">
+      <div>
+        <label class="form-label small mb-0">Tipo</label>
+        <select id="import-type" class="form-select form-select-sm" style="min-width:200px" required>
+          <option value="">-- Seleccionar --</option>
+          <option value="inventario">Inventario</option>
+          <option value="planilla_ubicaciones">Planilla (ubicaciones y registros)</option>
+          <option value="casas">Casas</option>
+          <option value="menu">Menú (categorías y platos)</option>
+          <option value="mesas">Mesas</option>
+          <option value="clientes">Clientes</option>
+          <option value="proveedores">Proveedores</option>
+          <option value="unidades">Unidades</option>
+          <option value="puestos">Puestos</option>
+          <option value="tipos_registro">Tipos de registro (planilla)</option>
+          <option value="tipos_deduccion">Tipos de deducción</option>
+          <option value="empleados">Empleados</option>
+        </select>
+      </div>
+      <div id="import-option-replace" style="display:none;">
+        <div class="form-check mt-2">
+          <input type="checkbox" id="import-replace" class="form-check-input">
+          <label class="form-check-label small" for="import-replace">Reemplazar todo antes de importar</label>
+        </div>
+      </div>
+      <div id="import-option-period" style="display:none;">
+        <label class="form-label small mb-0">Fecha planilla</label>
+        <input type="date" id="import-period-date" class="form-control form-control-sm" style="max-width:140px">
+      </div>
+      <div>
+        <label class="form-label small mb-0">Archivo</label>
+        <input type="file" id="import-file" class="form-control form-control-sm" accept=".xlsx,.xls" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm" id="btn-import-excel">
+        <i class="bi bi-upload me-1"></i> Importar
+      </button>
+    </form>
+    <div id="import-result" class="mt-2 small" style="display:none;"></div>
+  </div>
+</div>
+<div class="card mt-4">
+  <div class="card-body">
     <h5 class="card-title mb-3"><i class="bi bi-calendar-event me-2"></i>Feriados</h5>
     <p class="text-muted small mb-3">Feriados de Costa Rica. Se actualizan automáticamente al iniciar la aplicación.</p>
     <div class="d-flex gap-2 mb-3">
@@ -203,8 +253,65 @@ function syncHolidays() {
   })
   .catch(function(e) { showMsg('Error: ' + (e.message || e), true); });
 }
+function setupImportExcel() {
+  var typeSel = document.getElementById('import-type');
+  var replaceDiv = document.getElementById('import-option-replace');
+  var periodDiv = document.getElementById('import-option-period');
+  if (typeSel) {
+    typeSel.addEventListener('change', function() {
+      var v = (this.value || '').toLowerCase();
+      replaceDiv.style.display = (v === 'inventario' || v === 'planilla_ubicaciones') ? 'block' : 'none';
+      periodDiv.style.display = v === 'planilla_ubicaciones' ? 'block' : 'none';
+    });
+  }
+  var form = document.getElementById('form-import-excel');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var type = document.getElementById('import-type').value;
+      var fileInput = document.getElementById('import-file');
+      var resultEl = document.getElementById('import-result');
+      var btn = document.getElementById('btn-import-excel');
+      if (!type || !fileInput || !fileInput.files || !fileInput.files[0]) {
+        showMsg('Selecciona tipo y archivo', true);
+        return;
+      }
+      var fd = new FormData();
+      fd.append('type', type);
+      fd.append('file', fileInput.files[0]);
+      if (type === 'inventario' && document.getElementById('import-replace').checked) {
+        fd.append('replace', '1');
+      }
+      if (type === 'planilla_ubicaciones') {
+        if (document.getElementById('import-replace').checked) fd.append('replace_all', '1');
+        var pd = document.getElementById('import-period-date').value;
+        if (pd) fd.append('period_date', pd);
+      }
+      resultEl.style.display = 'block';
+      resultEl.className = 'mt-2 small text-muted';
+      resultEl.textContent = 'Importando...';
+      btn.disabled = true;
+      fetch('{{ url_for("settings.import_excel") }}', { method: 'POST', body: fd })
+        .then(function(r) { return r.json().then(function(j) { return [r.ok, j]; }); })
+        .then(function(arr) {
+          var ok = arr[0], j = arr[1];
+          resultEl.className = 'mt-2 small ' + (ok ? 'text-success' : 'text-danger');
+          resultEl.textContent = ok ? (j.message || 'Importación correcta') : (j.error || 'Error');
+          showMsg(ok ? (j.message || 'Listo') : (j.error || 'Error'), !ok);
+        })
+        .catch(function(err) {
+          resultEl.className = 'mt-2 small text-danger';
+          resultEl.textContent = 'Error: ' + (err.message || err);
+          showMsg('Error: ' + (err.message || err), true);
+        })
+        .finally(function() { btn.disabled = false; });
+    });
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   loadSettings();
+  setupImportExcel();
   var y = new Date().getFullYear();
   var sel = document.getElementById('holidays-year');
   for (var i = y; i <= y + 1; i++) {

@@ -1,7 +1,20 @@
 """Esquemas para planilla (trabajos y cargos)."""
 from extensions import ma
-from models import PayrollLocation, PayrollEntry
+from models import PayrollLocation, PayrollEntry, PayrollEntryType
 from .employee_schema import FlexibleDate
+
+
+class PayrollEntryTypeSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = PayrollEntryType
+        load_instance = True
+
+    id = ma.auto_field()
+    code = ma.auto_field()
+    name = ma.auto_field()
+    description = ma.auto_field()
+    display_order = ma.auto_field()
+    hide_puesto = ma.auto_field()
 
 
 class PayrollLocationSchema(ma.SQLAlchemySchema):

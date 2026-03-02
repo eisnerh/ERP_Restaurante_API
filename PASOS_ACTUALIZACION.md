@@ -15,6 +15,7 @@ Ejecuta solo las que apliquen a tu instalación (si el script indica "ya existe"
 
 | Migración | Cuándo ejecutar |
 |-----------|-----------------|
+| `python scripts/migrate_entry_types.py` | Para tipos de registro (Empleado, Mermas, Por contrato, etc.) |
 | `python scripts/migrate_hrs_negativas.py` | Si usas planilla y ves errores con hrs_negativas |
 | `python scripts/migrate_hr_employee_fields.py` | Si no tienes vacaciones ni cédula en empleados |
 | `python scripts/migrate_add_purchase_price.py` | Si falta columna purchase_price en inventario |
@@ -27,6 +28,7 @@ python app.py
 
 ## Cambios recientes
 
+- **Tipos de registro**: Empleado, Mermas, Por contrato, Servicios profesionales y personalizados (Planilla → Configuración → Tipos de registro)
 - **Casas de Don Raul**: Plaza San Carlos, Mirador, Brunch, Pan artesanal, Coronado (en lugar de "franquicias")
 - **Planilla**: Horas extra siempre positivas + campo horas negativas
 - **Desglose PDF**: Sin tabla "Desglose del salario"; asignaciones (Salario quincenal, Horas Extras) y deducciones fijas (Vales, Días de permiso, etc.)

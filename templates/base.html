@@ -29,7 +29,7 @@
           {% endif %}
         </div>
       </a>
-      <button class="btn btn-link p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-label="Abrir menú" style="color: #fff;">
+      <button class="btn btn-link p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#menuOffcanvas" aria-label="Abrir menú" title="Menú (Ctrl+M)" style="color: #fff;">
         <i class="bi bi-list fs-3"></i>
       </button>
     </div>
@@ -37,7 +37,7 @@
 
   <div class="offcanvas offcanvas-end bg-white" tabindex="-1" id="menuOffcanvas" aria-labelledby="menuOffcanvasLabel">
     <div class="offcanvas-header border-bottom">
-      <h5 class="offcanvas-title" id="menuOffcanvasLabel">Menú</h5>
+      <h5 class="offcanvas-title" id="menuOffcanvasLabel">Menú <small class="text-muted fw-normal">Ctrl+M</small></h5>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
     </div>
     <div class="offcanvas-body p-0 d-flex flex-column">
@@ -84,11 +84,21 @@
     function franchiseeChange(sel) {
       const fid = sel.value;
       if (!fid) return;
-      // Usar query param para cambiar franquiciado (más fiable que sesión/fetch)
       const url = new URL(window.location.href);
       url.searchParams.set('franchisee_id', fid);
       window.location.href = url.toString();
     }
+    document.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.key === 'm') {
+        e.preventDefault();
+        var oc = document.getElementById('menuOffcanvas');
+        if (oc) {
+          var inst = bootstrap.Offcanvas.getInstance(oc);
+          if (!inst) inst = new bootstrap.Offcanvas(oc);
+          inst.toggle();
+        }
+      }
+    });
   </script>
 </body>
 </html>

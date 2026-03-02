@@ -12,6 +12,7 @@ from .supplier import Supplier
 from .client import Client
 from .purchase import PurchaseOrder, PurchaseOrderItem
 from .payroll_location import PayrollLocation
+from .payroll_entry_type import PayrollEntryType
 from .position import Position
 from .deduction_type import DeductionType
 from .employee import Employee
@@ -28,7 +29,7 @@ __all__ = [
     "Category", "Dish", "Table", "Order", "OrderItem",
     "InventoryItem", "InventoryAlert", "Supplier",
     "Client", "PurchaseOrder", "PurchaseOrderItem",
-    "PayrollLocation", "Position", "DeductionType", "Employee", "VacationRecord", "PayrollEntry",
+    "PayrollLocation", "PayrollEntryType", "Position", "DeductionType", "Employee", "VacationRecord", "PayrollEntry",
     "Payslip", "PayslipLine",
     "PaymentRecord",
     "Unit",

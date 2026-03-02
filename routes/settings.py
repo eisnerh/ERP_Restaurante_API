@@ -2,7 +2,7 @@
 import os
 import uuid
 from pathlib import Path
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_file
 from werkzeug.utils import secure_filename
 from extensions import db
 from models import AppSettings
@@ -80,3 +80,79 @@ def update_settings():
         "favicon_url": s.favicon_url or "",
         "nav_icon": s.nav_icon or "",
     })
+
+
+@settings_bp.route("/import-excel", methods=["POST"])
+def import_excel():
+    """Importa datos desde un archivo Excel. Form data: type, file, opcionalmente replace, replace_all, period_date."""
+    if "file" not in request.files and "excel" not in request.files:
+        return jsonify({"error": "No se envió ningún archivo"}), 400
+    f = request.files.get("file") or request.files.get("excel")
+    if not f or not f.filename or not f.filename.lower().endswith((".xlsx", ".xls")):
+        return jsonify({"error": "Sube un archivo Excel (.xlsx)"}), 400
+    import_type = (request.form.get("type") or "").strip().lower()
+    if not import_type:
+        return jsonify({"error": "Indica el tipo de importación"}), 400
+    try:
+        from utils.import_excel_api import IMPORT_HANDLERS
+    except ImportError as e:
+        return jsonify({"error": str(e)}), 500
+    if import_type not in IMPORT_HANDLERS:
+        return jsonify({"error": f"Tipo no válido: {import_type}"}), 400
+    handler, extra_params = IMPORT_HANDLERS[import_type]
+    file_bytes = f.read()
+    if not file_bytes:
+        return jsonify({"error": "Archivo vacío"}), 400
+    fid = get_or_default_franchisee_id()
+    opts = {"replace": request.form.get("replace", "").lower() in ("1", "true", "si", "yes")}
+    if "replace_all" in extra_params:
+        opts["replace_all"] = request.form.get("replace_all", "").lower() in ("1", "true", "si", "yes")
+    if "period_date" in extra_params:
+        from datetime import datetime
+        pd = request.form.get("period_date", "").strip()
+        opts["period_date"] = datetime.strptime(pd[:10], "%Y-%m-%d").date() if pd else None
+    try:
+        if import_type == "inventario":
+            created, err = handler(file_bytes, fid, replace=opts["replace"])
+        elif import_type == "planilla_ubicaciones":
+            locs, entries, err = handler(
+                file_bytes, fid,
+                replace_all=opts.get("replace_all", False),
+                period_date=opts.get("period_date"),
+            )
+            if err:
+                return jsonify({"error": err}), 400
+            return jsonify({
+                "message": f"Importados {entries} registros en {locs} ubicaciones",
+                "locations": locs,
+                "entries": entries,
+            }), 200
+        elif import_type in ("casas", "unidades", "puestos", "tipos_registro", "tipos_deduccion"):
+            created, err = handler(file_bytes)
+        else:
+            created, err = handler(file_bytes, fid)
+        if err:
+            return jsonify({"error": err}), 400
+        return jsonify({"message": f"Importados {created} registros", "imported": created}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/download-excel-templates", methods=["GET"])
+def download_excel_templates():
+    """Descarga un ZIP con todas las plantillas Excel para importar datos."""
+    try:
+        from utils.excel_templates import generate_all_as_zip
+    except ImportError as e:
+        return jsonify({"error": "openpyxl requerido: pip install openpyxl"}), 500
+    try:
+        data, filename = generate_all_as_zip()
+        from io import BytesIO
+        return send_file(
+            BytesIO(data),
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=filename,
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

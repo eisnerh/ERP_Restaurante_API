@@ -34,9 +34,10 @@ def _normalize_unit(val):
     return mapping.get(s, "UND")
 
 
-def parse_excel_inventory(path):
+def parse_excel_inventory(path_or_file):
     """
     Lee la hoja "INVENTARIO" de DATOS INVENTARIO.xlsx.
+    path_or_file: ruta al archivo o objeto file-like (BytesIO).
     Retorna (items, error). items es lista de dicts; error es str o None.
     """
     try:
@@ -44,10 +45,12 @@ def parse_excel_inventory(path):
     except ImportError:
         return [], "Instala openpyxl: pip install openpyxl"
 
-    if not os.path.isfile(path):
-        return [], f"Archivo no encontrado: {path}"
-
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    if hasattr(path_or_file, "read"):
+        wb = openpyxl.load_workbook(path_or_file, read_only=True, data_only=True)
+    else:
+        if not os.path.isfile(path_or_file):
+            return [], f"Archivo no encontrado: {path_or_file}"
+        wb = openpyxl.load_workbook(path_or_file, read_only=True, data_only=True)
     items = []
 
     sheet_inv = None

@@ -1,11 +1,13 @@
 """API de planilla: trabajos, cargos y importación desde Excel."""
 import io
+import json
 import re
 from datetime import datetime, date as date_type
+from pathlib import Path
 from flask import Blueprint, request, jsonify, Response, send_file
 from extensions import db
-from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine, Employee, Position, DeductionType, VacationRecord, PaymentRecord
-from schemas import PayrollLocationSchema, PayrollEntrySchema, PayslipSchema, EmployeeSchema, PositionSchema, DeductionTypeSchema, VacationRecordSchema, PaymentRecordSchema
+from models import PayrollLocation, PayrollEntry, Payslip, PayslipLine, Employee, Position, DeductionType, PayrollEntryType, VacationRecord, PaymentRecord
+from schemas import PayrollLocationSchema, PayrollEntrySchema, PayrollEntryTypeSchema, PayslipSchema, EmployeeSchema, PositionSchema, DeductionTypeSchema, VacationRecordSchema, PaymentRecordSchema
 from utils.franchisee import get_or_default_franchisee_id
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/api/payroll")
@@ -14,6 +16,8 @@ location_schema = PayrollLocationSchema()
 locations_schema = PayrollLocationSchema(many=True)
 entry_schema = PayrollEntrySchema()
 entries_schema = PayrollEntrySchema(many=True)
+entry_type_schema = PayrollEntryTypeSchema()
+entry_types_schema = PayrollEntryTypeSchema(many=True)
 employee_schema = EmployeeSchema()
 employees_schema = EmployeeSchema(many=True)
 position_schema = PositionSchema()
@@ -678,6 +682,58 @@ def position_detail(pos_id):
 
 
 # ---------- Deduction Types (Tipos de deducción) - estándar global ----------
+# ---------- MTSS Salarios mínimos Costa Rica ----------
+_MTSS_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "mtss_salarios_minimos.json"
+_MTSS_CACHE = None
+
+
+def _load_mtss_data():
+    """Carga el JSON de salarios mínimos MTSS (cache en memoria)."""
+    global _MTSS_CACHE
+    if _MTSS_CACHE is not None:
+        return _MTSS_CACHE
+    if not _MTSS_DATA_PATH.exists():
+        return {"ocupaciones": [], "version": "", "fuente": ""}
+    try:
+        with open(_MTSS_DATA_PATH, encoding="utf-8") as f:
+            _MTSS_CACHE = json.load(f)
+        return _MTSS_CACHE
+    except (json.JSONDecodeError, OSError):
+        return {"ocupaciones": [], "version": "", "fuente": ""}
+
+
+@payroll_bp.route("/mtss-salarios", methods=["GET"])
+def search_mtss_salarios():
+    """
+    Busca salarios mínimos por ocupación (MTSS Costa Rica).
+    Query: q=texto (búsqueda en nombre de ocupación).
+    Devuelve: { resultados: [{ nombre, monto_mensual, tipo, categoria }, ...], version }.
+    """
+    data = _load_mtss_data()
+    ocupaciones = data.get("ocupaciones", [])
+    q = (request.args.get("q") or "").strip().lower()
+    if q:
+        ocupaciones = [
+            o for o in ocupaciones
+            if q in (o.get("nombre") or "").lower()
+        ]
+    # Ordenar por relevancia si hay búsqueda (coincidencias al inicio primero)
+    if q:
+        def rank(o):
+            n = (o.get("nombre") or "").lower()
+            if n.startswith(q):
+                return 0
+            if n.find(q) >= 0:
+                return 1
+            return 2
+        ocupaciones = sorted(ocupaciones, key=rank)
+    return jsonify({
+        "resultados": ocupaciones[:30],  # límite para no saturar
+        "version": data.get("version", ""),
+        "fuente": data.get("fuente", ""),
+    })
+
+
 @payroll_bp.route("/deduction-types", methods=["GET"])
 def list_deduction_types():
     """Lista tipos de deducción estándar. can_be_negative permite valores negativos (ej. horas negociables)."""
@@ -712,6 +768,55 @@ def deduction_type_detail(dt_id):
     return "", 204
 
 
+# ---------- Entry Types (Tipos de registro) ----------
+@payroll_bp.route("/entry-types", methods=["GET"])
+def list_entry_types():
+    """Lista tipos de registro (empleado, mermas, por contrato, servicios profesionales, etc.)."""
+    types = PayrollEntryType.query.order_by(PayrollEntryType.display_order, PayrollEntryType.name).all()
+    return jsonify(entry_types_schema.dump(types))
+
+
+@payroll_bp.route("/entry-types", methods=["POST"])
+def create_entry_type():
+    """Crea tipo de registro. code: identificador único (empleado, mermas, por_contrato, etc.). Si no se envía, se genera desde name."""
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "El nombre es obligatorio"}), 400
+    code = (data.get("code") or "").strip().lower().replace(" ", "_")
+    if not code:
+        import re
+        code = re.sub(r"[^a-z0-9_]", "", name.lower().replace(" ", "_"))
+    if not code:
+        return jsonify({"error": "No se pudo generar el código. Indícalo manualmente."}), 400
+    if PayrollEntryType.query.filter_by(code=code).first():
+        return jsonify({"error": f"Ya existe un tipo con código '{code}'"}), 400
+    data["code"] = code
+    et = entry_type_schema.load(data, session=db.session)
+    db.session.add(et)
+    db.session.commit()
+    return jsonify(entry_type_schema.dump(et)), 201
+
+
+@payroll_bp.route("/entry-types/<int:et_id>", methods=["GET", "PUT", "DELETE"])
+def entry_type_detail(et_id):
+    et = PayrollEntryType.query.get(et_id)
+    if not et:
+        return jsonify({"error": "Tipo de registro no encontrado"}), 404
+    if request.method == "GET":
+        return jsonify(entry_type_schema.dump(et))
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        if "code" in data:
+            data["code"] = (data["code"] or "").strip().lower().replace(" ", "_")
+        entry_type_schema.load(data, instance=et, session=db.session, partial=True)
+        db.session.commit()
+        return jsonify(entry_type_schema.dump(et))
+    db.session.delete(et)
+    db.session.commit()
+    return "", 204
+
+
 # ---------- Entries ----------
 @payroll_bp.route("/entries", methods=["GET"])
 def list_entries():
@@ -736,8 +841,7 @@ def list_entries():
             query = query.filter_by(location_id=location_id)
         else:
             query = query.filter(False)
-    valid_types = ("empleado", "administrador", "administrativo", "inventario", "custom", "mermas", "other", "employee")
-    if entry_type in valid_types:
+    if entry_type:
         query = query.filter_by(entry_type=entry_type)
     if period_date is not None:
         query = query.filter(PayrollEntry.period_date == period_date)
@@ -1106,9 +1210,10 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
         total_asig = base_salario_periodo
         total_ded = 0
         asig_lines = []
+        # Orden contable CR: CCSS primero, luego días no laborados, vale, créditos, mermas, otros
         ded_by_concept = {
-            "Vales": 0, "Días de permiso": 0, "Días de incapacidades": 0,
-            "Consumo vale efectivo": 0, "Facturas crédito": 0, "Otros": 0, "CCSS": 0,
+            "CCSS": 0, "Días no laborados": 0, "Vale efectivo": 0,
+            "Créditos comida": 0, "Mermas": 0, "Otros": 0,
         }
 
         def _parse_days_from_str(s):
@@ -1125,8 +1230,7 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
                     amt = ge.ccss_rebajos
                 if amt == 0:
                     amt = ge.creditos_comida or 0
-                amt = -abs(float(amt)) if amt else 0
-                ded_by_concept["Otros"] += abs(amt)
+                ded_by_concept["Mermas"] += abs(float(amt)) if amt else 0
             else:
                 # Horas extra: siempre positivas → asignación
                 hrs_extra_val = max(0, ge.hrs_extra or 0)
@@ -1134,31 +1238,24 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
                     val = hrs_extra_val * salary_hora_extra
                     asig_lines.append({"line_type": "asignacion", "concept": "Horas Extras", "amount": val, "quantity": hrs_extra_val})
                     total_asig += val
-                # Horas negativas → deducción (suma a Días de permiso si aplica)
+                # Horas negativas, días permiso e incapacidades → Días no laborados
                 hrs_neg = ge.hrs_negativas or 0
                 if hrs_neg > 0 and salary_hora_ord:
-                    val = hrs_neg * salary_hora_ord
-                    ded_by_concept["Días de permiso"] += val
-                # Consumo vale efectivo
-                if (ge.vale_efectivo or 0) != 0:
-                    val = abs(float(ge.vale_efectivo))
-                    ded_by_concept["Consumo vale efectivo"] += val
-                # Facturas crédito
-                if (ge.creditos_comida or 0) != 0:
-                    val = abs(float(ge.creditos_comida))
-                    ded_by_concept["Facturas crédito"] += val
-                # Otros (ccss_rebajos)
-                if (ge.ccss_rebajos or 0) != 0:
-                    ded_by_concept["Otros"] += abs(float(ge.ccss_rebajos))
-                # Días de permiso (dia_psg) y incapacidades
+                    ded_by_concept["Días no laborados"] += hrs_neg * salary_hora_ord
                 dias_perm = _parse_days_from_str(ge.dia_psg)
                 dias_incap = _parse_days_from_str(ge.incapacidades)
-                if dias_perm > 0 and salary_dia:
-                    ded_by_concept["Días de permiso"] += dias_perm * salary_dia
-                if dias_incap > 0 and salary_dia:
-                    ded_by_concept["Días de incapacidades"] += dias_incap * salary_dia
+                if (dias_perm + dias_incap) > 0 and salary_dia:
+                    ded_by_concept["Días no laborados"] += (dias_perm + dias_incap) * salary_dia
+                # Vale efectivo y Créditos comida (alineado con campos del registro)
+                if (ge.vale_efectivo or 0) != 0:
+                    ded_by_concept["Vale efectivo"] += abs(float(ge.vale_efectivo))
+                if (ge.creditos_comida or 0) != 0:
+                    ded_by_concept["Créditos comida"] += abs(float(ge.creditos_comida))
+                # Otros (ccss_rebajos y misc.)
+                if (ge.ccss_rebajos or 0) != 0:
+                    ded_by_concept["Otros"] += abs(float(ge.ccss_rebajos))
 
-        # CCSS automática
+        # CCSS automática (ley CR)
         aplicar_ccss = pos is None or getattr(pos, "aplicar_ccss", True)
         if salario_mes and aplicar_ccss:
             ccss_pct = None
@@ -1175,20 +1272,20 @@ def _generate_payslips_from_entries(fid, location_id, period_start, period_end, 
                 if ccss_amt > 0:
                     ded_by_concept["CCSS"] += ccss_amt
 
-        # Construir líneas en orden fijo
-        # ASIGNACIONES: Salario quincenal, Horas Extras
+        # Construir líneas: solo conceptos con monto > 0 (desglose más limpio)
         lines = []
         if salario_mes:
-            lines.append({"line_type": "asignacion", "concept": "Salario quincenal", "amount": base_salario_periodo})
+            lines.append({"line_type": "asignacion", "concept": "Salario base", "amount": base_salario_periodo})
         for al in asig_lines:
             lines.append(al)
 
-        # DEDUCCIONES: siempre todas las líneas en orden
-        DED_ORDER = ["Vales", "Días de permiso", "Días de incapacidades", "Consumo vale efectivo", "Facturas crédito", "Otros", "CCSS"]
+        # DEDUCCIONES: orden contable (CCSS primero), solo conceptos con monto
+        DED_ORDER = ["CCSS", "Días no laborados", "Vale efectivo", "Créditos comida", "Mermas", "Otros"]
         for concept in DED_ORDER:
             amt = ded_by_concept.get(concept, 0)
             total_ded += amt
-            lines.append({"line_type": "deduccion", "concept": concept, "amount": -amt if amt > 0 else 0})
+            if amt > 0:
+                lines.append({"line_type": "deduccion", "concept": concept, "amount": -amt})
 
         total_depositado = total_asig - total_ded
 

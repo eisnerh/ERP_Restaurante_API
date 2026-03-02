@@ -38,49 +38,50 @@
 <div class="tab-content">
   <!-- 1. Configuración (Ubicaciones, Puestos, Tipos deducción) -->
   <div class="tab-pane fade show active" id="tab-config">
-    <div class="accordion" id="config-accordion">
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#config-ubicaciones" aria-expanded="true">Ubicaciones</button>
-        </h2>
-        <div id="config-ubicaciones" class="accordion-collapse collapse show" data-bs-parent="#config-accordion">
-          <div class="accordion-body">
-            <div class="d-flex flex-wrap gap-2 mb-3">
-              <button type="button" class="btn btn-primary btn-sm" onclick="openLocForm()"><i class="bi bi-plus-lg me-1"></i>Nueva ubicación</button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="importExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Importar Excel</button>
-            </div>
-            <div id="loc-loading" class="text-center text-muted py-3">Cargando...</div>
-            <div id="loc-content" style="display:none;"></div>
-          </div>
+    <ul class="nav nav-pills nav-fill mb-3" id="config-sub-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="config-tab-ubicaciones" data-bs-toggle="tab" data-bs-target="#config-ubicaciones" type="button" role="tab"><i class="bi bi-geo-alt me-1"></i>Ubicaciones</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="config-tab-puestos" data-bs-toggle="tab" data-bs-target="#config-puestos" type="button" role="tab"><i class="bi bi-briefcase me-1"></i>Puestos</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="config-tab-tipos-registro" data-bs-toggle="tab" data-bs-target="#config-tipos-registro" type="button" role="tab"><i class="bi bi-tags me-1"></i>Tipos de registro</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="config-tab-deducciones" data-bs-toggle="tab" data-bs-target="#config-deducciones" type="button" role="tab"><i class="bi bi-cash-minus me-1"></i>Tipos de deducción</button>
+      </li>
+    </ul>
+    <div class="tab-content border rounded p-3 bg-light">
+      <div class="tab-pane fade show active" id="config-ubicaciones" role="tabpanel">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openLocForm()"><i class="bi bi-plus-lg me-1"></i>Nueva ubicación</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="importExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Importar Excel</button>
         </div>
+        <div id="loc-loading" class="text-center text-muted py-3">Cargando...</div>
+        <div id="loc-content" style="display:none;"></div>
       </div>
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#config-puestos">Puestos</button>
-        </h2>
-        <div id="config-puestos" class="accordion-collapse collapse" data-bs-parent="#config-accordion">
-          <div class="accordion-body">
-            <div class="d-flex flex-wrap gap-2 mb-3">
-              <button type="button" class="btn btn-primary btn-sm" onclick="openPosForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo puesto</button>
-            </div>
-            <div id="pos-loading" class="text-center text-muted py-3">Cargando...</div>
-            <div id="pos-content" style="display:none;"></div>
-          </div>
+      <div class="tab-pane fade" id="config-puestos" role="tabpanel">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openPosForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo puesto</button>
         </div>
+        <div id="pos-loading" class="text-center text-muted py-3">Cargando...</div>
+        <div id="pos-content" style="display:none;"></div>
       </div>
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#config-deducciones">Tipos de deducción</button>
-        </h2>
-        <div id="config-deducciones" class="accordion-collapse collapse" data-bs-parent="#config-accordion">
-          <div class="accordion-body">
-            <div class="d-flex flex-wrap gap-2 mb-3">
-              <button type="button" class="btn btn-primary btn-sm" onclick="openDedTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
-            </div>
-            <div id="ded-loading" class="text-center text-muted py-3">Cargando...</div>
-            <div id="ded-content" style="display:none;"></div>
-          </div>
+      <div class="tab-pane fade" id="config-tipos-registro" role="tabpanel">
+        <p class="text-muted small mb-2">Tipos para clasificar registros: Empleado, Mermas, Por contrato, Servicios profesionales, etc.</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openEntryTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
         </div>
+        <div id="entry-types-loading" class="text-center text-muted py-3">Cargando...</div>
+        <div id="entry-types-content" style="display:none;"></div>
+      </div>
+      <div class="tab-pane fade" id="config-deducciones" role="tabpanel">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openDedTypeForm()"><i class="bi bi-plus-lg me-1"></i>Nuevo tipo</button>
+        </div>
+        <div id="ded-loading" class="text-center text-muted py-3">Cargando...</div>
+        <div id="ded-content" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -295,8 +296,9 @@
               <label class="form-label">Tipo de registro</label>
               <select id="entry-type" class="form-select" onchange="onEntryTypeChange()">
                 <option value="empleado">Empleado</option>
-                <option value="mermas">Mermas (gasto del empleado)</option>
+                <option value="mermas">Mermas</option>
               </select>
+              <small class="text-muted">Configura en Planilla → Configuración → Tipos de registro</small>
             </div>
             <div class="col-md-6" id="entry-puesto-wrap">
               <label class="form-label">Puesto</label>
@@ -384,7 +386,19 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Salario base (₡/mes)</label>
-              <input type="number" id="emp-salario-base" class="form-control" step="0.01" placeholder="Aguinaldo, prestaciones">
+              <div class="input-group">
+                <input type="number" id="emp-salario-base" class="form-control" step="0.01" placeholder="Aguinaldo, prestaciones">
+                <div class="dropdown" data-bs-auto-close="outside">
+                  <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="mtss-salarios-btn" aria-expanded="false" title="Buscar salario mínimo sugerido por MTSS Costa Rica">Buscar MTSS</button>
+                  <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:320px;">
+                    <input type="text" id="mtss-search" class="form-control form-control-sm mb-2" placeholder="Ej: mesero, cocinero, cajero..." autocomplete="off">
+                    <div id="mtss-results" class="list-group list-group-flush" style="max-height:220px; overflow-y:auto;"></div>
+                    <div id="mtss-loading" class="text-muted small py-2 text-center" style="display:none;">Buscando...</div>
+                    <div id="mtss-empty" class="text-muted small py-2" style="display:none;">Sin resultados. Pruebe otro término.</div>
+                    <p class="text-muted small mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Salarios mínimos MTSS Costa Rica</p>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Tarifa por hora (₡)</label>
@@ -530,7 +544,19 @@
             <div class="row g-2">
               <div class="col-md-4">
                 <label class="form-label small">Salario base mensual (₡)</label>
-                <input type="number" id="pos-salario-base" class="form-control form-control-sm" step="0.01" min="0" placeholder="Ej. 450000" oninput="calcPosBreakdown()">
+                <div class="input-group input-group-sm">
+                  <input type="number" id="pos-salario-base" class="form-control form-control-sm" step="0.01" min="0" placeholder="Ej. 450000" oninput="calcPosBreakdown()">
+                  <div class="dropdown" data-bs-auto-close="outside">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="mtss-pos-btn" aria-expanded="false" title="Buscar salario mínimo sugerido por MTSS Costa Rica">Buscar MTSS</button>
+                    <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:320px;">
+                      <input type="text" id="mtss-pos-search" class="form-control form-control-sm mb-2" placeholder="Ej: cocinero, mesero, cajero..." autocomplete="off">
+                      <div id="mtss-pos-results" class="list-group list-group-flush" style="max-height:220px; overflow-y:auto;"></div>
+                      <div id="mtss-pos-loading" class="text-muted small py-2 text-center" style="display:none;">Buscando...</div>
+                      <div id="mtss-pos-empty" class="text-muted small py-2" style="display:none;">Sin resultados.</div>
+                      <p class="text-muted small mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Salarios mínimos MTSS Costa Rica</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="col-md-2">
                 <label class="form-label small">Horas/día</label>
@@ -610,6 +636,41 @@
         <div class="modal-footer">
           <button type="submit" class="btn btn-primary">Guardar</button>
           <button type="button" class="btn btn-secondary" onclick="modalHide('modal-ded')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal tipo de registro -->
+<div id="modal-entry-type" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-entry-type')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="modal-entry-type-title">Nuevo tipo de registro</h5></div>
+      <form onsubmit="saveEntryType(event)">
+        <div class="modal-body">
+          <input type="hidden" id="entry-type-id" value="">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="entry-type-name" class="form-control" required placeholder="Ej. Por contrato, Servicios profesionales">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Código (se genera automático si está vacío)</label>
+            <input type="text" id="entry-type-code" class="form-control" placeholder="Ej. por_contrato">
+            <small class="text-muted">Sin espacios, minúsculas. Se usará para guardar el registro.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="entry-type-desc" class="form-control" placeholder="Opcional">
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="entry-type-hide-puesto" class="form-check-input">
+            <label class="form-check-label" for="entry-type-hide-puesto">Ocultar campo Puesto (ej. mermas)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="button" class="btn btn-secondary" onclick="modalHide('modal-entry-type')">Cancelar</button>
         </div>
       </form>
     </div>
@@ -703,9 +764,11 @@
 
 <script>
 const API_LOC = {{ url_for('payroll.list_locations') | tojson }};
+const API_MTSS = {{ url_for('payroll.search_mtss_salarios') | tojson }};
 const API_EMP = {{ url_for('payroll.list_employees') | tojson }};
 const API_POS = {{ url_for('payroll.list_positions') | tojson }};
 const API_DED = {{ url_for('payroll.list_deduction_types') | tojson }};
+const API_ENT_TYPES = {{ url_for('payroll.list_entry_types') | tojson }};
 const API_ENT = {{ url_for('payroll.list_entries') | tojson }};
 const API_PS = {{ url_for('payroll.list_payslips') | tojson }};
 const API_PS_PERIODS = {{ url_for('payroll.list_payslip_periods') | tojson }};
@@ -713,6 +776,7 @@ const API_PAY = {{ url_for('payroll.list_payments') | tojson }};
 const msg = document.getElementById('msg');
 let locations = [];
 let positions = [];
+let entryTypes = [];
 
 function showMsg(text, type) {
   if (!msg) return;
@@ -824,12 +888,13 @@ function loadEntries() {
       const list = data || [];
       let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Fecha</th><th>Empleado</th><th>Tipo</th><th>Hrs extra</th><th>Créditos</th><th>Vale</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(o => {
-        const pos = o.position_id ? positions.find(function(p) { return p.id === o.position_id; }) : null;
-        let tipo = o.entry_type || (pos && pos.position_type) || 'empleado';
+        let tipo = o.entry_type || 'empleado';
         if (tipo === 'employee') tipo = 'empleado';
-        const badge = tipo === 'mermas' ? 'warning' : tipo === 'administrador' ? 'info' : tipo === 'administrativo' ? 'success' : tipo === 'inventario' ? 'dark' : 'primary';
+        const et = entryTypes.find(function(x) { return (x.code || '') === tipo; });
+        const tipoLabel = et ? (et.name || et.code) : tipo;
+        const badge = tipo === 'mermas' ? 'warning' : tipo === 'administrador' ? 'info' : tipo === 'administrativo' ? 'success' : tipo === 'inventario' ? 'dark' : tipo === 'por_contrato' || tipo === 'servicios_profesionales' ? 'secondary' : 'primary';
         const fecha = o.period_date ? (typeof o.period_date === 'string' ? o.period_date.split('T')[0] : o.period_date) : '-';
-        html += '<tr><td>' + o.id + '</td><td>' + fecha + '</td><td>' + (o.employee_name || '') + '</td><td><span class="badge bg-' + badge + '">' + tipo + '</span></td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
+        html += '<tr><td>' + o.id + '</td><td>' + fecha + '</td><td>' + (o.employee_name || '') + '</td><td><span class="badge bg-' + badge + '">' + tipoLabel + '</span></td><td>' + (o.hrs_extra != null ? o.hrs_extra : '-') + '</td><td>' + (o.creditos_comida != null ? o.creditos_comida : '-') + '</td><td>' + (o.vale_efectivo != null ? o.vale_efectivo : '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editEntry(' + o.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntry(' + o.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('ent-content').innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay registros. Filtra por ubicación/período o crea uno nuevo.</p>';
@@ -870,6 +935,126 @@ function fillEmpLocSelect() {
   sel.innerHTML = '<option value="">Sin asignar</option>';
   locations.forEach(l => { sel.innerHTML += '<option value="' + l.id + '">' + (l.name || '') + '</option>'; });
   if (locations.length === 1) sel.value = locations[0].id;
+}
+var mtssSearchTimer = null;
+function searchMtssSalarios(q) {
+  var resultsEl = document.getElementById('mtss-results');
+  var loadingEl = document.getElementById('mtss-loading');
+  var emptyEl = document.getElementById('mtss-empty');
+  if (!resultsEl) return;
+  loadingEl.style.display = q ? 'block' : 'none';
+  emptyEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+  fetch(API_MTSS + (q ? '?q=' + encodeURIComponent(q) : ''))
+    .then(r => r.json())
+    .then(data => {
+      loadingEl.style.display = 'none';
+      var list = data.resultados || [];
+      if (list.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      list.forEach(function(o) {
+        var m = o.monto_mensual != null ? Number(o.monto_mensual) : 0;
+        var cat = o.categoria || '';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action list-group-item-sm py-2';
+        btn.textContent = (o.nombre || '') + ' — ₡ ' + m.toLocaleString('es-CR', {minimumFractionDigits: 0}) + (cat ? ' (' + cat + ')' : '');
+        btn.dataset.monto = m;
+        btn.onclick = function() {
+          document.getElementById('emp-salario-base').value = m;
+          var hpd = parseFloat(document.getElementById('emp-horas-por-dia').value) || 8;
+          if (hpd > 0) {
+            var diasMes = 26;
+            var horasMes = diasMes * hpd;
+            document.getElementById('emp-salario-hora').value = (m / horasMes).toFixed(2);
+          }
+          document.getElementById('mtss-salarios-btn').click();
+        };
+        resultsEl.appendChild(btn);
+      });
+    })
+    .catch(function() { loadingEl.style.display = 'none'; emptyEl.textContent = 'Error al buscar.'; emptyEl.style.display = 'block'; });
+}
+function initMtssSalarios() {
+  var btn = document.getElementById('mtss-salarios-btn');
+  var searchEl = document.getElementById('mtss-search');
+  if (!btn || !searchEl) return;
+  btn.parentElement.addEventListener('show.bs.dropdown', function() {
+    searchEl.value = '';
+    document.getElementById('mtss-results').innerHTML = '';
+    document.getElementById('mtss-loading').style.display = 'none';
+    document.getElementById('mtss-empty').style.display = 'none';
+    searchMtssSalarios('');
+  });
+  searchEl.addEventListener('input', function() {
+    clearTimeout(mtssSearchTimer);
+    var q = searchEl.value.trim();
+    mtssSearchTimer = setTimeout(function() { searchMtssSalarios(q); }, 200);
+  });
+  searchEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+}
+var mtssPosSearchTimer = null;
+function searchMtssSalariosPos(q) {
+  var resultsEl = document.getElementById('mtss-pos-results');
+  var loadingEl = document.getElementById('mtss-pos-loading');
+  var emptyEl = document.getElementById('mtss-pos-empty');
+  if (!resultsEl) return;
+  loadingEl.style.display = q ? 'block' : 'none';
+  emptyEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+  fetch(API_MTSS + (q ? '?q=' + encodeURIComponent(q) : ''))
+    .then(r => r.json())
+    .then(data => {
+      loadingEl.style.display = 'none';
+      var list = data.resultados || [];
+      if (list.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      list.forEach(function(o) {
+        var m = o.monto_mensual != null ? Number(o.monto_mensual) : 0;
+        var cat = o.categoria || '';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action list-group-item-sm py-2';
+        btn.textContent = (o.nombre || '') + ' — ₡ ' + m.toLocaleString('es-CR', {minimumFractionDigits: 0}) + (cat ? ' (' + cat + ')' : '');
+        btn.dataset.monto = m;
+        btn.dataset.nombre = o.nombre || '';
+        btn.onclick = function() {
+          var nameEl = document.getElementById('pos-name');
+          if (nameEl && !nameEl.value.trim()) nameEl.value = btn.dataset.nombre || '';
+          document.getElementById('pos-salario-base').value = m;
+          if (typeof calcPosBreakdown === 'function') calcPosBreakdown();
+          document.getElementById('mtss-pos-btn').click();
+        };
+        resultsEl.appendChild(btn);
+      });
+    })
+    .catch(function() { loadingEl.style.display = 'none'; emptyEl.textContent = 'Error al buscar.'; emptyEl.style.display = 'block'; });
+}
+function initMtssSalariosPos() {
+  var btn = document.getElementById('mtss-pos-btn');
+  var searchEl = document.getElementById('mtss-pos-search');
+  if (!btn || !searchEl) return;
+  btn.parentElement.addEventListener('show.bs.dropdown', function() {
+    searchEl.value = '';
+    document.getElementById('mtss-pos-results').innerHTML = '';
+    document.getElementById('mtss-pos-loading').style.display = 'none';
+    document.getElementById('mtss-pos-empty').style.display = 'none';
+    searchMtssSalariosPos('');
+  });
+  searchEl.addEventListener('input', function() {
+    clearTimeout(mtssPosSearchTimer);
+    var q = searchEl.value.trim();
+    mtssPosSearchTimer = setTimeout(function() { searchMtssSalariosPos(q); }, 200);
+  });
+  searchEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') e.preventDefault();
+  });
 }
 function openEmpForm() {
   try {
@@ -1259,12 +1444,82 @@ function delDedType(id) {
     .catch(err => showMsg(err.message, 'error'));
 }
 
+function loadEntryTypes() {
+  document.getElementById('entry-types-loading').style.display = 'block';
+  document.getElementById('entry-types-content').style.display = 'none';
+  apiGet(API_ENT_TYPES).then(data => {
+    entryTypes = Array.isArray(data) ? data : [];
+    document.getElementById('entry-types-loading').style.display = 'none';
+    document.getElementById('entry-types-content').style.display = 'block';
+    let html = entryTypes.length ? '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Nombre</th><th>Código</th><th class="text-end">Acciones</th></tr></thead><tbody>' : '';
+    entryTypes.forEach(t => {
+      html += '<tr><td>' + (t.name || t.code) + '</td><td><code>' + (t.code || '') + '</code></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" onclick="editEntryType(' + t.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="delEntryType(' + t.id + ')">Eliminar</button></td></tr>';
+    });
+    html += entryTypes.length ? '</tbody></table></div>' : '<p class="text-muted mb-0">No hay tipos. Crea Empleado, Mermas, Por contrato, etc.</p>';
+    document.getElementById('entry-types-content').innerHTML = html;
+    fillEntryTypeSelect();
+  }).catch(() => { document.getElementById('entry-types-loading').style.display = 'none'; document.getElementById('entry-types-content').innerHTML = '<p class="text-muted">No se pudieron cargar.</p>'; document.getElementById('entry-types-content').style.display = 'block'; });
+}
+function fillEntryTypeSelect() {
+  const sel = document.getElementById('entry-type');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '';
+  entryTypes.forEach(t => { sel.innerHTML += '<option value="' + (t.code || '') + '">' + (t.name || t.code) + '</option>'; });
+  if (entryTypes.length && (!cur || !entryTypes.find(t => t.code === cur))) sel.selectedIndex = 0;
+  else if (cur) sel.value = cur;
+}
+function openEntryTypeForm() {
+  document.getElementById('modal-entry-type-title').textContent = 'Nuevo tipo de registro';
+  document.getElementById('entry-type-id').value = '';
+  document.getElementById('entry-type-name').value = '';
+  document.getElementById('entry-type-code').value = '';
+  document.getElementById('entry-type-desc').value = '';
+  document.getElementById('entry-type-hide-puesto').checked = false;
+  modalShow('modal-entry-type');
+}
+function editEntryType(id) {
+  apiGet(API_ENT_TYPES + '/' + id).then(t => {
+    document.getElementById('modal-entry-type-title').textContent = 'Editar tipo de registro';
+    document.getElementById('entry-type-id').value = t.id;
+    document.getElementById('entry-type-name').value = t.name || '';
+    document.getElementById('entry-type-code').value = t.code || '';
+    document.getElementById('entry-type-desc').value = t.description || '';
+    document.getElementById('entry-type-hide-puesto').checked = t.hide_puesto || false;
+    modalShow('modal-entry-type');
+  }).catch(err => showMsg(err.message, 'error'));
+}
+function saveEntryType(e) {
+  e.preventDefault();
+  const id = document.getElementById('entry-type-id').value;
+  const name = document.getElementById('entry-type-name').value.trim();
+  let code = document.getElementById('entry-type-code').value.trim();
+  if (!code && name) code = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const data = {
+    name: name,
+    code: code || null,
+    description: document.getElementById('entry-type-desc').value.trim() || null,
+    hide_puesto: document.getElementById('entry-type-hide-puesto').checked
+  };
+  const p = id ? apiPut(API_ENT_TYPES + '/' + id, data) : apiPost(API_ENT_TYPES, data);
+  p.then(() => { modalHide('modal-entry-type'); showMsg('Tipo guardado.', 'success'); loadEntryTypes(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+function delEntryType(id) {
+  if (!confirm('¿Eliminar este tipo de registro? Los registros existentes con este tipo no se modificarán.')) return;
+  apiDelete(API_ENT_TYPES + '/' + id)
+    .then(() => { showMsg('Tipo eliminado.', 'success'); loadEntryTypes(); })
+    .catch(err => showMsg(err.message, 'error'));
+}
+
 let employees = [];
 function onEntryTypeChange() {
   const typeVal = document.getElementById('entry-type').value;
+  const t = entryTypes.find(x => (x.code || '') === typeVal);
+  const hidePuesto = t ? (t.hide_puesto || false) : (typeVal === 'mermas');
   const puestoWrap = document.getElementById('entry-puesto-wrap');
   const hint = document.getElementById('entry-mermas-hint');
-  if (puestoWrap) puestoWrap.style.display = typeVal === 'mermas' ? 'none' : 'block';
+  if (puestoWrap) puestoWrap.style.display = hidePuesto ? 'none' : 'block';
   if (hint) hint.style.display = typeVal === 'mermas' ? 'block' : 'none';
 }
 function onEntryEmployeeChange() {
@@ -1295,7 +1550,7 @@ function openEntryForm() {
   document.getElementById('entry-period-date').value = new Date().toISOString().slice(0, 10);
   document.getElementById('entry-employee-id').value = '';
   document.getElementById('entry-employee-name').value = '';
-  document.getElementById('entry-type').value = 'empleado';
+  document.getElementById('entry-type').value = entryTypes.length ? (entryTypes[0].code || 'empleado') : 'empleado';
   document.getElementById('entry-position-id').value = '';
   document.getElementById('entry-hrs').value = '';
   document.getElementById('entry-hrs-neg').value = '';
@@ -1304,7 +1559,7 @@ function openEntryForm() {
   document.getElementById('entry-notes').value = '';
   fillLocSelect('entry-location-id');
   fillEmpSelect('entry-employee-id');
-  // Recargar empleados por si se crearon nuevos (actualiza el selector)
+  fillEntryTypeSelect();
   apiGet(API_EMP).then(data => { employees = Array.isArray(data) ? data : []; fillEmpSelect('entry-employee-id'); });
   fillPosSelects();
   onEntryTypeChange();
@@ -1319,7 +1574,7 @@ function editEntry(id) {
     document.getElementById('entry-period-date').value = o.period_date ? o.period_date.split('T')[0] : '';
     document.getElementById('entry-employee-id').value = o.employee_id || '';
     document.getElementById('entry-employee-name').value = o.employee_name || '';
-    document.getElementById('entry-type').value = o.entry_type === 'mermas' ? 'mermas' : 'empleado';
+    document.getElementById('entry-type').value = (o.entry_type && entryTypes.find(t => t.code === o.entry_type)) ? o.entry_type : (entryTypes.length ? entryTypes[0].code : 'empleado');
     document.getElementById('entry-position-id').value = o.entry_type === 'mermas' ? '' : (o.position_id || '');
     onEntryTypeChange();
     document.getElementById('entry-hrs').value = o.hrs_extra != null ? o.hrs_extra : '';
@@ -1339,13 +1594,15 @@ function saveEntry(e) {
   const empId = document.getElementById('entry-employee-id').value;
   const typeVal = document.getElementById('entry-type').value;
   const posVal = document.getElementById('entry-position-id').value;
+  const t = entryTypes.find(function(x) { return (x.code || '') === typeVal; });
+  const hidePuesto = t ? (t.hide_puesto || false) : (typeVal === 'mermas');
   const data = {
     location_id: parseInt(document.getElementById('entry-location-id').value, 10),
     period_date: document.getElementById('entry-period-date').value,
     employee_id: empId ? parseInt(empId, 10) : null,
     employee_name: document.getElementById('entry-employee-name').value.trim(),
-    position_id: typeVal === 'mermas' ? null : (posVal ? parseInt(posVal, 10) : null),
-    entry_type: typeVal === 'mermas' ? 'mermas' : (function() { var p = positions.find(function(x) { return x.id === parseInt(posVal, 10); }); return (p && p.position_type) || 'empleado'; })(),
+    position_id: hidePuesto ? null : (posVal ? parseInt(posVal, 10) : null),
+    entry_type: typeVal || 'empleado',
     hrs_extra: document.getElementById('entry-hrs').value ? parseFloat(document.getElementById('entry-hrs').value) : null,
     hrs_negativas: document.getElementById('entry-hrs-neg').value ? parseFloat(document.getElementById('entry-hrs-neg').value) : null,
     creditos_comida: parseFloat(document.getElementById('entry-creditos').value) || 0,
@@ -1916,8 +2173,17 @@ function importExcel() {
   .catch(err => showMsg(err.message, 'error'));
 }
 
+var entryTypesLoaded = false;
 function initPlanilla() {
   try {
+    initMtssSalarios();
+    initMtssSalariosPos();
+    document.getElementById('config-sub-tabs')?.addEventListener('shown.bs.tab', function(ev) {
+      if (ev.target && ev.target.getAttribute('data-bs-target') === '#config-tipos-registro' && !entryTypesLoaded) {
+        entryTypesLoaded = true;
+        loadEntryTypes();
+      }
+    });
     document.getElementById('planilla-tabs')?.addEventListener('shown.bs.tab', function(ev) {
       if (ev.target && ev.target.getAttribute('data-bs-target') === '#tab-reporte-empleado') {
         const fromEl = document.getElementById('report-from');
@@ -1925,8 +2191,10 @@ function initPlanilla() {
         loadVacationReport();
       }
     });
-    loadLocations().then(() => apiGet(API_EMP)).then(data => {
-      employees = Array.isArray(data) ? data : [];
+    loadLocations().then(() => Promise.all([apiGet(API_EMP), apiGet(API_ENT_TYPES)])).then(([empData, etData]) => {
+      employees = Array.isArray(empData) ? empData : [];
+      entryTypes = Array.isArray(etData) ? etData : [];
+      fillEntryTypeSelect();
       loadEmployees();
       loadEntries();
       loadPayslips();
