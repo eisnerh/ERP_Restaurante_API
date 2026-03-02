@@ -75,11 +75,9 @@ O doble clic en `build.bat`. Se genera `dist/ERP_Restaurant.exe`.
 
 ## Documentación
 
-- **[INSTALACION.md](INSTALACION.md)** — Guía de instalación para el cliente
+- **[INSTALACION.md](INSTALACION.md)** — Guía completa de instalación, actualización y solución de problemas
 - **[TUTORIAL_USUARIO.md](TUTORIAL_USUARIO.md)** — Manual para el usuario final
 - **[FORMATOS_EXCEL.md](FORMATOS_EXCEL.md)** — Formatos Excel para importar datos (inventario, planilla, etc.)
-- **[PASOS_ACTUALIZACION.md](PASOS_ACTUALIZACION.md)** — Pasos para actualizar desde versión anterior
-- **[SETUP.md](SETUP.md)** — Configuración para desarrollo
 - **[README_API.md](README_API.md)** — Documentación técnica de la API (endpoints, ejemplos)
 
 ### Generar plantillas Excel

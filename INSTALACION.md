@@ -256,6 +256,29 @@ El archivo `dist/ERP_Restaurant.exe` se creará. Para usarlo:
 
 ---
 
+## Actualizar desde versión anterior
+
+Si ya tienes el proyecto instalado y actualizas el código:
+
+1. **Actualizar dependencias:**
+   ```powershell
+   .\venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   ```
+
+2. **Migraciones de base de datos** (ejecuta solo las que apliquen):
+
+   | Script | Cuándo ejecutar |
+   |--------|-----------------|
+   | `python scripts/migrate_entry_types.py` | Tipos de registro (Empleado, Mermas, Por contrato) |
+   | `python scripts/migrate_hrs_negativas.py` | Errores con hrs_negativas en planilla |
+   | `python scripts/migrate_hr_employee_fields.py` | Campos vacaciones, cédula en empleados |
+   | `python scripts/migrate_add_purchase_price.py` | Falta columna purchase_price en inventario |
+
+3. **Reiniciar la aplicación:** `python app.py`
+
+---
+
 ## Solución de problemas
 
 | Problema | Solución |
