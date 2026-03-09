@@ -566,10 +566,30 @@ def employee_report_pdf(emp_id):
     )
 
 
+@payroll_bp.route("/vacation-balance-report", methods=["GET"])
+def vacation_balance_report():
+    """
+    Reporte de días de vacaciones disponibles por empleado (por disfrutar).
+    Query: employee_id= (opcional).
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify([])
+    employees = Employee.query.filter_by(franchisee_id=fid, active=True).order_by(Employee.name).all()
+    employee_id = request.args.get("employee_id", type=int)
+    if employee_id:
+        employees = [e for e in employees if e.id == employee_id]
+    result = []
+    for emp in employees:
+        dias = emp.vacation_days()
+        result.append({"employee_id": emp.id, "employee_name": emp.name, "vacation_days": dias})
+    return jsonify(result)
+
+
 @payroll_bp.route("/vacation-records-report", methods=["GET"])
 def vacation_records_report():
     """
-    Reporte de vacaciones disfrutadas.
+    Reporte de vacaciones disfrutadas (registros de días tomados).
     Query: from_date=YYYY-MM-DD, to_date=YYYY-MM-DD, employee_id= (opcional).
     Devuelve registros con nombre del empleado incluido.
     """
@@ -628,6 +648,46 @@ def employee_vacation_records(emp_id):
     # Los días se deducen automáticamente desde vacation_records (Employee.vacation_days)
     db.session.commit()
     return jsonify(vacation_record_schema.dump(rec)), 201
+
+
+@payroll_bp.route("/employees/<int:emp_id>/vacation-records/<int:record_id>", methods=["PUT", "DELETE"])
+def employee_vacation_record_by_id(emp_id, record_id):
+    """Edita o elimina un registro de vacaciones. PUT: {fecha_desde, fecha_hasta, dias_tomados, tipo, notes}."""
+    fid = get_or_default_franchisee_id()
+    emp = Employee.query.filter_by(id=emp_id, franchisee_id=fid).first() if fid else None
+    if not emp:
+        return jsonify({"error": "Empleado no encontrado"}), 404
+    rec = VacationRecord.query.filter_by(id=record_id, employee_id=emp_id).first()
+    if not rec:
+        return jsonify({"error": "Registro no encontrado"}), 404
+    if request.method == "DELETE":
+        db.session.delete(rec)
+        db.session.commit()
+        return jsonify({"deleted": True}), 200
+    data = request.get_json() or {}
+    for f in ("fecha_desde", "fecha_hasta"):
+        if f in data and data[f]:
+            data[f] = _parse_date_param(data[f])
+        elif f in data:
+            data[f] = None
+    if data.get("fecha_desde") is not None:
+        rec.fecha_desde = data["fecha_desde"]
+    if data.get("fecha_hasta") is not None:
+        rec.fecha_hasta = data["fecha_hasta"]
+    if data.get("fecha_desde") or data.get("fecha_hasta"):
+        if not rec.fecha_desde or not rec.fecha_hasta:
+            return jsonify({"error": "fecha_desde y fecha_hasta son obligatorios"}), 400
+    dias = _to_float(data.get("dias_tomados"))
+    if dias is not None:
+        if dias <= 0:
+            return jsonify({"error": "dias_tomados debe ser mayor a 0"}), 400
+        rec.dias_tomados = dias
+    if "tipo" in data:
+        rec.tipo = data["tipo"] or "vacaciones"
+    if "notes" in data:
+        rec.notes = data["notes"] or None
+    db.session.commit()
+    return jsonify(vacation_record_schema.dump(rec)), 200
 
 
 # ---------- Positions (Puestos) - estándar global ----------

@@ -37,6 +37,7 @@
     {"nombre": "Agente de seguridad", "tipo": "mensual", "monto_diario": null, "monto_mensual": 405710.71, "categoria": "Calificado"},
     {"nombre": "Supervisor", "tipo": "mensual", "monto_diario": null, "monto_mensual": 419755.93, "categoria": "Calificado"},
     {"nombre": "Gerente", "tipo": "mensual", "monto_diario": null, "monto_mensual": 664078.07, "categoria": "Bachiller"},
+    {"nombre": "Gerente Socio", "tipo": "mensual", "monto_diario": null, "monto_mensual": 500000, "categoria": "Personalizado"},
     {"nombre": "Administrador", "tipo": "mensual", "monto_diario": null, "monto_mensual": 664078.07, "categoria": "Bachiller"},
     {"nombre": "Contador", "tipo": "mensual", "monto_diario": null, "monto_mensual": 585484.58, "categoria": "Diplomado"},
     {"nombre": "Contador licenciado", "tipo": "mensual", "monto_diario": null, "monto_mensual": 796921.00, "categoria": "Licenciatura"}

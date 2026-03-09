@@ -58,6 +58,19 @@ def create_tables():
                 db.session.add(PayrollEntryType(**d))
             db.session.commit()
             print("   Tipos de registro creados: Empleado, Mermas, Por contrato, Servicios profesionales, etc.")
+        # Puesto Gerente Socio (salario 500 000)
+        from models import Position
+        if not Position.query.filter_by(name="Gerente Socio").first():
+            db.session.add(Position(
+                name="Gerente Socio",
+                position_type="administrador",
+                salario_base=500000,
+                display_order=0,
+                horas_por_dia=8,
+                dias_por_semana=6,
+            ))
+            db.session.commit()
+            print("   Puesto 'Gerente Socio' creado (₡ 500 000).")
         if Franchisee.query.count() == 0:
             casas = [
                 ("001", "Casa Plaza San Carlos"),

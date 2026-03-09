@@ -110,6 +110,56 @@ def create_order():
     return jsonify(order_schema.dump(order)), 201
 
 
+@purchases_bp.route("/direct", methods=["POST"])
+def create_direct_purchase():
+    """
+    Registra una compra directa: fecha, proveedor, monto.
+    Se crea como orden recibida (cuenta en total de compras) sin ítems de inventario.
+    """
+    fid = get_or_default_franchisee_id()
+    if not fid:
+        return jsonify({"error": "Selecciona un franquiciado"}), 400
+    data = request.get_json() or {}
+    supplier_id = data.get("supplier_id")
+    if not supplier_id:
+        return jsonify({"error": "supplier_id es obligatorio"}), 400
+    supplier = Supplier.query.filter_by(id=supplier_id, franchisee_id=fid).first()
+    if not supplier:
+        return jsonify({"error": "Proveedor no encontrado"}), 404
+    total = float(data.get("total") or 0)
+    if total <= 0:
+        return jsonify({"error": "El monto debe ser mayor que 0"}), 400
+    order_date = data.get("order_date")
+    if order_date:
+        try:
+            dt = datetime.strptime(order_date, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            dt = datetime.utcnow()
+    else:
+        dt = datetime.utcnow()
+    order = PurchaseOrder(
+        franchisee_id=fid,
+        supplier_id=supplier_id,
+        order_number=_next_order_number(fid),
+        order_date=dt,
+        notes="Compra directa",
+        status="received",
+        total=total,
+    )
+    db.session.add(order)
+    db.session.flush()
+    item = PurchaseOrderItem(
+        purchase_order_id=order.id,
+        product_name="Compra directa",
+        quantity=1,
+        unit="Pago",
+        unit_price=total,
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(order_schema.dump(order)), 201
+
+
 @purchases_bp.route("/<int:order_id>", methods=["GET"])
 def get_order(order_id):
     """Obtiene una orden con sus ítems."""

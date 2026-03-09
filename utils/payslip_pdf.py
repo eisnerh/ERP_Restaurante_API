@@ -11,10 +11,14 @@ BORDER_GRAY = "#8B9E94"     # Bordes de celdas (gris verdoso)
 
 
 def _fmt_money(val):
+    """Formato Costa Rica: espacio como separador de miles (₡ 500 000,50)."""
     if val is None:
         return "-"
     try:
-        return "₡ {:,.2f}".format(float(val))
+        v = float(val)
+        s = "{:,.2f}".format(v)
+        # {:,.2f} -> "500,000.50" -> "500 000,50"
+        return "₡ " + s.replace(",", " ").replace(".", ",")
     except (TypeError, ValueError):
         return str(val)
 

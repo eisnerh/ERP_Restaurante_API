@@ -214,17 +214,9 @@
     </div>
     <div class="card mt-4">
       <div class="card-body">
-        <h5 class="card-title mb-3"><i class="bi bi-calendar-check me-2"></i>Vacaciones disfrutadas</h5>
-        <p class="text-muted small mb-3">Registros de vacaciones tomadas por empleado.</p>
+        <h5 class="card-title mb-3"><i class="bi bi-calendar-check me-2"></i>Vacaciones por disfrutar</h5>
+        <p class="text-muted small mb-3">Días disponibles de vacaciones de cada empleado.</p>
         <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
-          <div>
-            <label class="form-label small mb-0">Desde</label>
-            <input type="date" id="vac-report-from" class="form-control form-control-sm" onchange="loadVacationReport()">
-          </div>
-          <div>
-            <label class="form-label small mb-0">Hasta</label>
-            <input type="date" id="vac-report-to" class="form-control form-control-sm" onchange="loadVacationReport()">
-          </div>
           <div>
             <label class="form-label small mb-0">Empleado</label>
             <select id="vac-report-emp" class="form-select form-select-sm" style="min-width:180px;" onchange="loadVacationReport()">
@@ -232,7 +224,7 @@
             </select>
           </div>
           <div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="loadVacationReport()"><i class="bi bi-arrow-repeat me-1"></i>Filtrar</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="loadVacationReport()"><i class="bi bi-arrow-repeat me-1"></i>Actualizar</button>
           </div>
         </div>
         <div id="vac-report-loading" class="text-center text-muted py-3" style="display:none;">Cargando...</div>
@@ -345,7 +337,7 @@
 
 <!-- Modal empleado -->
 <div id="modal-emp" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-emp')">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header"><h5 class="modal-title" id="modal-emp-title">Nuevo empleado</h5></div>
       <form onsubmit="saveEmp(event)">
@@ -376,17 +368,19 @@
             </div>
           </div>
           <div class="row g-2 mt-2">
-            <div class="col-md-4">
+            <div class="col-md-6">
               <label class="form-label">Código interno</label>
               <input type="text" id="emp-code" class="form-control" placeholder="Opcional">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
               <label class="form-label">Número de cuenta</label>
               <input type="text" id="emp-numero-cuenta" class="form-control" placeholder="Para depósitos">
             </div>
-            <div class="col-md-4">
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-12">
               <label class="form-label">Salario base (₡/mes)</label>
-              <div class="input-group">
+              <div class="input-group" style="max-width:400px;">
                 <input type="number" id="emp-salario-base" class="form-control" step="0.01" placeholder="Aguinaldo, prestaciones">
                 <div class="dropdown" data-bs-auto-close="outside">
                   <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="mtss-salarios-btn" aria-expanded="false" title="Buscar salario mínimo sugerido por MTSS Costa Rica">Buscar MTSS</button>
@@ -400,6 +394,8 @@
                 </div>
               </div>
             </div>
+          </div>
+          <div class="row g-2 mt-2">
             <div class="col-md-4">
               <label class="form-label">Tarifa por hora (₡)</label>
               <input type="number" id="emp-salario-hora" class="form-control" step="0.01" placeholder="Para pago por hora">
@@ -417,6 +413,13 @@
                 <option value="diario">Diario</option>
                 <option value="por_hora">Por hora</option>
               </select>
+            </div>
+          </div>
+          <div id="emp-saldo-vac-row" class="row g-2 mt-2" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-info py-2 mb-0">
+                <i class="bi bi-calendar-check me-1"></i><strong>Saldo vacaciones:</strong> <span id="emp-saldo-vac-val">-</span> días disponibles
+              </div>
             </div>
           </div>
           <div class="row g-2 mt-2">
@@ -468,24 +471,25 @@
 <div id="modal-vac" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-vac')">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Registrar vacaciones tomadas</h5></div>
+      <div class="modal-header"><h5 class="modal-title" id="modal-vac-title">Registrar vacaciones tomadas</h5></div>
       <form onsubmit="saveVacation(event)">
         <div class="modal-body">
           <input type="hidden" id="vac-emp-id" value="">
+          <input type="hidden" id="vac-record-id" value="">
           <p class="small text-muted mb-2" id="vac-emp-info">Empleado: -</p>
           <div class="row g-2">
             <div class="col-md-6">
               <label class="form-label">Desde</label>
-              <input type="date" id="vac-desde" class="form-control" required>
+              <input type="date" id="vac-desde" class="form-control" required onchange="calcVacDias()">
             </div>
             <div class="col-md-6">
               <label class="form-label">Hasta</label>
-              <input type="date" id="vac-hasta" class="form-control" required>
+              <input type="date" id="vac-hasta" class="form-control" required onchange="calcVacDias()">
             </div>
           </div>
           <div class="row g-2 mt-2">
             <div class="col-md-6">
-              <label class="form-label">Días tomados</label>
+              <label class="form-label">Días de vacaciones tomados <small class="text-muted">(se calcula automáticamente)</small></label>
               <input type="number" id="vac-dias" class="form-control" step="0.5" min="0.5" required placeholder="Ej. 5">
             </div>
             <div class="col-md-6">
@@ -507,7 +511,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Registrar</button>
+          <button type="submit" class="btn btn-primary" id="vac-submit-btn">Registrar</button>
           <button type="button" class="btn btn-secondary" onclick="modalHide('modal-vac')">Cancelar</button>
         </div>
       </form>
@@ -542,9 +546,9 @@
           <div class="border rounded p-3 mb-3 bg-light">
             <h6 class="mb-2"><i class="bi bi-calculator me-1"></i>Salario y jornada (para desglose automático)</h6>
             <div class="row g-2">
-              <div class="col-md-4">
+              <div class="col-12">
                 <label class="form-label small">Salario base mensual (₡)</label>
-                <div class="input-group input-group-sm">
+                <div class="input-group input-group-sm" style="max-width:400px;">
                   <input type="number" id="pos-salario-base" class="form-control form-control-sm" step="0.01" min="0" placeholder="Ej. 450000" oninput="calcPosBreakdown()">
                   <div class="dropdown" data-bs-auto-close="outside">
                     <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="mtss-pos-btn" aria-expanded="false" title="Buscar salario mínimo sugerido por MTSS Costa Rica">Buscar MTSS</button>
@@ -558,6 +562,8 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <div class="row g-2 mt-2">
               <div class="col-md-2">
                 <label class="form-label small">Horas/día</label>
                 <input type="number" id="pos-horas-dia" class="form-control form-control-sm" step="0.5" min="0.5" value="8" oninput="calcPosBreakdown()">
@@ -1057,6 +1063,7 @@ function initMtssSalariosPos() {
   });
 }
 function openEmpForm() {
+  document.getElementById('emp-saldo-vac-row').style.display = 'none';
   try {
     if (typeof modalShow !== 'function') {
       showMsg('Error: faltan scripts (crud.js). Recarga la página.', 'error');
@@ -1102,6 +1109,12 @@ function editEmp(id) {
   apiGet(API_EMP + '/' + id).then(e => {
     document.getElementById('modal-emp-title').textContent = 'Editar empleado';
     document.getElementById('emp-id').value = e.id;
+    var vacRow = document.getElementById('emp-saldo-vac-row');
+    var vacVal = document.getElementById('emp-saldo-vac-val');
+    if (vacRow && vacVal) {
+      vacRow.style.display = 'block';
+      vacVal.textContent = e.vacation_days != null ? Number(e.vacation_days).toFixed(1) : '0';
+    }
     document.getElementById('emp-name').value = e.name || '';
     document.getElementById('emp-cedula').value = e.cedula || '';
     document.getElementById('emp-code').value = e.code || '';
@@ -1124,37 +1137,102 @@ function editEmp(id) {
   }).catch(err => showMsg(err.message, 'error'));
 }
 
+function calcVacDias() {
+  const desde = document.getElementById('vac-desde')?.value;
+  const hasta = document.getElementById('vac-hasta')?.value;
+  const diasEl = document.getElementById('vac-dias');
+  if (!desde || !hasta || !diasEl) return;
+  const d1 = new Date(desde + 'T00:00:00');
+  const d2 = new Date(hasta + 'T00:00:00');
+  if (d2 < d1) {
+    diasEl.value = '';
+    return;
+  }
+  const diffMs = d2 - d1;
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+  diasEl.value = diffDays;
+}
+
 function openVacationModal(empId) {
   apiGet(API_EMP + '/' + empId).then(e => {
     document.getElementById('vac-emp-id').value = empId;
-    document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Saldo real (después del disfrute): ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días';
+    document.getElementById('vac-record-id').value = '';
+    document.getElementById('modal-vac-title').textContent = 'Registrar vacaciones tomadas';
+    document.getElementById('vac-submit-btn').textContent = 'Registrar';
+    document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Saldo: ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días disponibles';
     document.getElementById('vac-desde').value = '';
     document.getElementById('vac-hasta').value = '';
     document.getElementById('vac-dias').value = '';
     document.getElementById('vac-tipo').value = 'vacaciones';
     document.getElementById('vac-notes').value = '';
     document.getElementById('vac-records-list').textContent = 'Cargando...';
-    apiGet(API_EMP + '/' + empId + '/vacation-records').then(records => {
-      if (!records || records.length === 0) {
-        document.getElementById('vac-records-list').innerHTML = '<em>Sin registros. Los días se deducen al registrar vacaciones.</em>';
-      } else {
-        let html = '<ul class="list-unstyled mb-0">';
-        records.forEach(r => {
-          const desde = r.fecha_desde ? r.fecha_desde.split('T')[0] : '-';
-          const hasta = r.fecha_hasta ? r.fecha_hasta.split('T')[0] : '-';
-          html += '<li>' + desde + ' a ' + hasta + ': ' + (r.dias_tomados || 0) + ' días (' + (r.tipo || 'vacaciones') + ')</li>';
-        });
-        html += '</ul>';
-        document.getElementById('vac-records-list').innerHTML = html;
-      }
-    }).catch(() => { document.getElementById('vac-records-list').textContent = 'No se pudieron cargar.'; });
+    loadVacRecordsList(empId);
     modalShow('modal-vac');
   }).catch(err => showMsg(err.message, 'error'));
+}
+
+function loadVacRecordsList(empId) {
+  apiGet(API_EMP + '/' + empId + '/vacation-records').then(records => {
+    if (!records || records.length === 0) {
+      document.getElementById('vac-records-list').innerHTML = '<em>Sin registros. Los días se deducen al registrar vacaciones.</em>';
+    } else {
+      let html = '<ul class="list-unstyled mb-0">';
+      records.forEach(r => {
+        const desde = r.fecha_desde ? r.fecha_desde.split('T')[0] : '-';
+        const hasta = r.fecha_hasta ? r.fecha_hasta.split('T')[0] : '-';
+        html += '<li class="d-flex align-items-center justify-content-between gap-2 py-1"><span>' + desde + ' a ' + hasta + ': ' + (r.dias_tomados || 0) + ' días (' + (r.tipo || 'vacaciones') + ')</span><span><button type="button" class="btn btn-outline-primary btn-sm" onclick="editVacRecord(' + r.id + ')" title="Editar"><i class="bi bi-pencil"></i></button> <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteVacRecord(' + r.id + ')" title="Eliminar"><i class="bi bi-trash"></i></button></span></li>';
+      });
+      html += '</ul>';
+      document.getElementById('vac-records-list').innerHTML = html;
+    }
+  }).catch(() => { document.getElementById('vac-records-list').textContent = 'No se pudieron cargar.'; });
+}
+
+function editVacRecord(recordId) {
+  const empId = document.getElementById('vac-emp-id').value;
+  apiGet(API_EMP + '/' + empId + '/vacation-records').then(records => {
+    const r = records.find(x => x.id === recordId);
+    if (!r) return;
+    document.getElementById('vac-record-id').value = r.id;
+    document.getElementById('modal-vac-title').textContent = 'Editar vacaciones tomadas';
+    document.getElementById('vac-submit-btn').textContent = 'Guardar';
+    document.getElementById('vac-desde').value = r.fecha_desde ? r.fecha_desde.split('T')[0] : '';
+    document.getElementById('vac-hasta').value = r.fecha_hasta ? r.fecha_hasta.split('T')[0] : '';
+    document.getElementById('vac-dias').value = r.dias_tomados ?? '';
+    document.getElementById('vac-tipo').value = r.tipo || 'vacaciones';
+    document.getElementById('vac-notes').value = r.notes || '';
+  });
+}
+
+function deleteVacRecord(recordId) {
+  if (!confirm('¿Eliminar este registro de vacaciones?')) return;
+  const empId = document.getElementById('vac-emp-id').value;
+  apiDelete(API_EMP + '/' + empId + '/vacation-records/' + recordId)
+    .then(() => {
+      showMsg('Registro eliminado.', 'success');
+      loadVacRecordsList(empId);
+      apiGet(API_EMP + '/' + empId).then(e => {
+        document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Saldo: ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días disponibles';
+      });
+      if (document.getElementById('vac-record-id').value == recordId) {
+        document.getElementById('vac-record-id').value = '';
+        document.getElementById('modal-vac-title').textContent = 'Registrar vacaciones tomadas';
+        document.getElementById('vac-submit-btn').textContent = 'Registrar';
+        document.getElementById('vac-desde').value = '';
+        document.getElementById('vac-hasta').value = '';
+        document.getElementById('vac-dias').value = '';
+        document.getElementById('vac-tipo').value = 'vacaciones';
+        document.getElementById('vac-notes').value = '';
+      }
+      loadEmployees();
+    })
+    .catch(err => showMsg(err.message || 'Error al eliminar', 'error'));
 }
 
 function saveVacation(ev) {
   ev.preventDefault();
   const empId = document.getElementById('vac-emp-id').value;
+  const recordId = document.getElementById('vac-record-id').value;
   const desde = document.getElementById('vac-desde').value;
   const hasta = document.getElementById('vac-hasta').value;
   const dias = parseFloat(document.getElementById('vac-dias').value);
@@ -1173,29 +1251,27 @@ function saveVacation(ev) {
     tipo: document.getElementById('vac-tipo').value,
     notes: document.getElementById('vac-notes').value.trim() || null
   };
-  apiPost(API_EMP + '/' + empId + '/vacation-records', data)
-    .then(() => {
-      apiGet(API_EMP + '/' + empId).then(e => {
-        document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Saldo real (después del disfrute): ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días';
-      });
-      apiGet(API_EMP + '/' + empId + '/vacation-records').then(records => {
-        if (!records || records.length === 0) {
-          document.getElementById('vac-records-list').innerHTML = '<em>Sin registros. Los días se deducen al registrar vacaciones.</em>';
-        } else {
-          let html = '<ul class="list-unstyled mb-0">';
-          records.forEach(r => {
-            const d = r.fecha_desde ? r.fecha_desde.split('T')[0] : '-';
-            const h = r.fecha_hasta ? r.fecha_hasta.split('T')[0] : '-';
-            html += '<li>' + d + ' a ' + h + ': ' + (r.dias_tomados || 0) + ' días (' + (r.tipo || 'vacaciones') + ')</li>';
-          });
-          document.getElementById('vac-records-list').innerHTML = html + '</ul>';
-        }
-      });
-      showMsg('Vacaciones registradas. Saldo actualizado.', 'success');
-      loadEmployees();
-      modalHide('modal-vac');
-    })
-    .catch(err => showMsg(err.message || err.error || 'Error al registrar', 'error'));
+  const isEdit = !!recordId;
+  const req = isEdit
+    ? apiPut(API_EMP + '/' + empId + '/vacation-records/' + recordId, data)
+    : apiPost(API_EMP + '/' + empId + '/vacation-records', data);
+  req.then(() => {
+    apiGet(API_EMP + '/' + empId).then(e => {
+      document.getElementById('vac-emp-info').textContent = 'Empleado: ' + (e.name || '') + ' | Saldo: ' + (e.vacation_days != null ? e.vacation_days : 0) + ' días disponibles';
+    });
+    loadVacRecordsList(empId);
+    document.getElementById('vac-record-id').value = '';
+    document.getElementById('modal-vac-title').textContent = 'Registrar vacaciones tomadas';
+    document.getElementById('vac-submit-btn').textContent = 'Registrar';
+    document.getElementById('vac-desde').value = '';
+    document.getElementById('vac-hasta').value = '';
+    document.getElementById('vac-dias').value = '';
+    document.getElementById('vac-tipo').value = 'vacaciones';
+    document.getElementById('vac-notes').value = '';
+    showMsg(isEdit ? 'Vacaciones actualizadas.' : 'Vacaciones registradas. Saldo actualizado.', 'success');
+    loadEmployees();
+    loadVacationReport();
+  }).catch(err => showMsg(err.message || err.error || 'Error al guardar', 'error'));
 }
 
 function saveEmp(e) {
@@ -2087,33 +2163,26 @@ function loadEmployeeReportDetail(empId, from, to, loading, content) {
 
 function loadVacationReport() {
   const empId = document.getElementById('vac-report-emp') ? document.getElementById('vac-report-emp').value : '';
-  const fromEl = document.getElementById('vac-report-from');
-  const toEl = document.getElementById('vac-report-to');
-  const from = fromEl ? fromEl.value : '';
-  const to = toEl ? toEl.value : '';
   const loading = document.getElementById('vac-report-loading');
   const content = document.getElementById('vac-report-content');
   loading.style.display = 'block';
   content.style.display = 'none';
   const params = [];
-    if (from) params.push('from_date=' + encodeURIComponent(from));
-    if (to) params.push('to_date=' + encodeURIComponent(to));
-    if (empId) params.push('employee_id=' + encodeURIComponent(empId));
-    const url = '/api/payroll/vacation-records-report' + (params.length ? '?' + params.join('&') : '');
+  if (empId) params.push('employee_id=' + encodeURIComponent(empId));
+  const url = '/api/payroll/vacation-balance-report' + (params.length ? '?' + params.join('&') : '');
   apiGet(url).then(data => {
     loading.style.display = 'none';
     content.style.display = 'block';
     const list = data || [];
-    let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Empleado</th><th>Desde</th><th>Hasta</th><th class="text-end">Días</th><th>Tipo</th><th>Notas</th></tr></thead><tbody>';
+    let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Empleado</th><th class="text-end">Días por disfrutar</th></tr></thead><tbody>';
     list.forEach(r => {
-      const desde = r.fecha_desde ? (typeof r.fecha_desde === 'string' ? r.fecha_desde.split('T')[0] : r.fecha_desde) : '-';
-      const hasta = r.fecha_hasta ? (typeof r.fecha_hasta === 'string' ? r.fecha_hasta.split('T')[0] : r.fecha_hasta) : '-';
-      html += '<tr><td>' + (r.employee_name || '-') + '</td><td>' + desde + '</td><td>' + hasta + '</td><td class="text-end">' + (r.dias_tomados != null ? r.dias_tomados : '-') + '</td><td><span class="badge bg-info">' + (r.tipo || 'vacaciones') + '</span></td><td class="small">' + (r.notes || '') + '</td></tr>';
+      const dias = r.vacation_days != null ? r.vacation_days.toFixed(1) : '-';
+      html += '<tr><td>' + (r.employee_name || '-') + '</td><td class="text-end"><strong>' + dias + '</strong></td></tr>';
     });
     html += '</tbody></table></div>';
-    const totalDias = list.reduce((s, r) => s + (r.dias_tomados || 0), 0);
-    if (list.length) html = '<p class="small text-muted mb-2"><strong>Total días disfrutados:</strong> ' + totalDias.toFixed(1) + '</p>' + html;
-    content.innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay registros de vacaciones en el período seleccionado.</p>';
+    const totalDias = list.reduce((s, r) => s + (r.vacation_days || 0), 0);
+    if (list.length) html = '<p class="small text-muted mb-2"><strong>Total días disponibles:</strong> ' + totalDias.toFixed(1) + '</p>' + html;
+    content.innerHTML = list.length ? html : '<p class="text-muted mb-0">No hay empleados activos o con vacaciones disponibles.</p>';
   }).catch(err => {
     loading.style.display = 'none';
     content.style.display = 'block';
