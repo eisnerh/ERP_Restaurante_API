@@ -10,7 +10,11 @@ class Order(db.Model):
     table_id = db.Column(db.Integer, db.ForeignKey("tables.id"), nullable=False)
     status = db.Column(db.String(20), default="pending")  # pending, preparing, served, paid
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     notes = db.Column(db.String(300))
+    payment_type = db.Column(db.String(30), nullable=True)  # efectivo, sinpe, tarjeta_credito, tarjeta_debito
+    cash_register_id = db.Column(db.Integer, db.ForeignKey("cash_register_sessions.id"), nullable=True)
+    ticket_emitted_at = db.Column(db.DateTime, nullable=True)  # Fecha del primer tiquete emitido; si existe, solo reimprimir
 
     items = db.relationship("OrderItem", backref="order", lazy="dynamic", cascade="all, delete-orphan")
 

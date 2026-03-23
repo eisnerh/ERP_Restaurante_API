@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}Caja{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Caja</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div id="caja-cerrada" class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Abrir caja</h5>
+    <p class="text-muted mb-3">No hay caja abierta. Indica el monto inicial para comenzar.</p>
+    <div class="d-flex gap-2 align-items-end flex-wrap">
+      <div style="min-width: 180px;">
+        <label class="form-label">Monto de apertura (₡)</label>
+        <input type="number" id="apertura-monto" class="form-control" min="0" step="0.01" value="0" placeholder="Ej: 50000">
+      </div>
+      <button type="button" class="btn btn-primary" onclick="abrirCaja()"><i class="bi bi-door-open me-1"></i>Abrir caja</button>
+    </div>
+    <p class="small text-muted mt-2 mb-0" id="suggested-opening"></p>
+  </div>
+</div>
+
+<div id="caja-abierta" class="card mb-3" style="display:none;">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-cash-coin text-success me-1"></i>Caja abierta</h5>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <small class="text-muted">Apertura</small>
+          <p class="mb-0 fw-bold" id="session-opening">₡ 0</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <small class="text-muted">Ventas (cobradas)</small>
+          <p class="mb-0 fw-bold text-success" id="session-sales">₡ 0</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <small class="text-muted">Gastos</small>
+          <p class="mb-0 fw-bold text-danger" id="session-expenses">₡ 0</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2 bg-light">
+          <small class="text-muted">Saldo esperado</small>
+          <p class="mb-0 fw-bold" id="session-expected">₡ 0</p>
+        </div>
+      </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="registrarGasto()"><i class="bi bi-dash-circle me-1"></i>Registrar gasto</button>
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="irArqueoZ()"><i class="bi bi-receipt me-1"></i>Arqueo Z</button>
+      <button type="button" class="btn btn-outline-danger btn-sm" onclick="mostrarCierre()"><i class="bi bi-door-closed me-1"></i>Cierre rápido</button>
+    </div>
+  </div>
+</div>
+
+<div id="card-detalle" class="card mb-3" style="display:none;">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Detalle de cierre de caja <span id="detalle-session-id"></span></h5>
+    <div id="detalle-loading" class="text-muted py-3">Cargando...</div>
+    <div id="detalle-content" style="display:none;">
+      <div class="row g-2 mb-3">
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Apertura</small><p class="mb-0" id="d-apertura">-</p></div></div>
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Cierre</small><p class="mb-0" id="d-cierre">-</p></div></div>
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Ventas</small><p class="mb-0 text-success" id="d-ventas">-</p></div></div>
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Gastos</small><p class="mb-0 text-danger" id="d-gastos">-</p></div></div>
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Saldo cierre</small><p class="mb-0" id="d-saldo">-</p></div></div>
+        <div class="col-md-2"><div class="p-2 border rounded"><small class="text-muted">Diferencia</small><p class="mb-0" id="d-diff">-</p></div></div>
+      </div>
+      <div class="row mb-2">
+        <div class="col"><small class="text-muted">Ventas:</small> <span id="d-ventas-list"></span></div>
+      </div>
+      <div class="row mb-2">
+        <div class="col"><small class="text-muted">Gastos:</small> <span id="d-gastos-list"></span></div>
+      </div>
+      <div class="mt-2">
+        <a id="btn-pdf" href="#" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-pdf me-1"></i>Imprimir PDF</a>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cerrarDetalle()">Cerrar detalle</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Historial de sesiones</h5>
+    <div id="historial-loading" class="text-muted py-3">Cargando...</div>
+    <div id="historial-content" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-gasto" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-gasto')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Registrar gasto</h5></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Monto (₡)</label>
+          <input type="number" id="gasto-monto" class="form-control" min="0.01" step="0.01" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descripción</label>
+          <input type="text" id="gasto-desc" class="form-control" placeholder="Ej: Compra insumos">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Medio de pago</label>
+          <select id="gasto-pago" class="form-select">
+            <option value="efectivo">Efectivo</option>
+            <option value="sinpe">Sinpe</option>
+            <option value="tarjeta_credito">Tarjeta crédito</option>
+            <option value="tarjeta_debito">Tarjeta débito</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Vincular con compra (opcional)</label>
+          <select id="gasto-compra" class="form-select">
+            <option value="">-- Sin vincular --</option>
+          </select>
+          <small class="text-muted">Si este gasto corresponde al pago de una orden de compra, selecciónala aquí.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="guardarGasto()">Guardar</button>
+        <button type="button" class="btn btn-secondary" onclick="modalHide('modal-gasto')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-cierre" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-cierre')">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Cerrar caja</h5></div>
+      <div class="modal-body">
+        <p class="text-muted">Cuenta el efectivo en caja e ingresa el monto real.</p>
+        <div class="mb-3">
+          <label class="form-label">Saldo esperado</label>
+          <input type="text" id="cierre-expected" class="form-control" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Monto contado (₡)</label>
+          <input type="number" id="cierre-monto" class="form-control" min="0" step="0.01" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Notas (opcional)</label>
+          <input type="text" id="cierre-notes" class="form-control" placeholder="Observaciones">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" onclick="cerrarCaja()">Cerrar caja</button>
+        <button type="button" class="btn btn-secondary" onclick="modalHide('modal-cierre')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+let currentSessionId = null;
+
+function fmt(n) { return (n != null ? Number(n) : 0).toLocaleString('es-CR', {minimumFractionDigits: 2}); }
+
+function loadCaja() {
+  apiGet('/api/cash-register/current')
+    .then(data => {
+      if (data.open && data.session) {
+        currentSessionId = data.session.id;
+        document.getElementById('caja-cerrada').style.display = 'none';
+        document.getElementById('caja-abierta').style.display = 'block';
+        document.getElementById('session-opening').textContent = '₡ ' + fmt(data.session.opening_balance);
+        document.getElementById('session-sales').textContent = '₡ ' + fmt(data.session.sales);
+        document.getElementById('session-expenses').textContent = '₡ ' + fmt(data.session.expenses);
+        document.getElementById('session-expected').textContent = '₡ ' + fmt(data.session.expected_balance);
+      } else {
+        currentSessionId = null;
+        document.getElementById('caja-cerrada').style.display = 'block';
+        document.getElementById('caja-abierta').style.display = 'none';
+        apiGet('/api/cash-register/suggested-opening')
+          .then(s => { document.getElementById('suggested-opening').textContent = 'Sugerido (cierre anterior): ₡ ' + fmt(s.suggested_balance); });
+      }
+    })
+    .catch(e => showMsg(msg, 'Error: ' + e.message, 'error'));
+}
+
+function abrirCaja() {
+  const monto = parseFloat(document.getElementById('apertura-monto').value) || 0;
+  apiPost('/api/cash-register', { opening_balance: monto })
+    .then(() => { showMsg(msg, 'Caja abierta.', 'success'); loadCaja(); loadHistorial(); })
+    .catch(e => showMsg(msg, e.message, 'error'));
+}
+
+function loadHistorial() {
+  document.getElementById('historial-loading').style.display = 'block';
+  document.getElementById('historial-content').style.display = 'none';
+  apiGet('/api/cash-register?limit=20')
+    .then(data => {
+      document.getElementById('historial-loading').style.display = 'none';
+      document.getElementById('historial-content').style.display = 'block';
+      if (!data || data.length === 0) {
+        document.getElementById('historial-content').innerHTML = '<p class="text-muted mb-0">No hay sesiones registradas.</p>';
+        return;
+      }
+      let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Apertura</th><th>Cierre</th><th>Inicial</th><th>Cierre</th><th>Diferencia</th><th>Acción</th></tr></thead><tbody>';
+      data.forEach(s => {
+        const diff = s.difference != null ? (s.difference >= 0 ? '+' : '') + fmt(s.difference) : '-';
+        const links = s.closed_at ? '<a href="/caja/arqueo/' + s.id + '" class="me-2">Arqueo Z</a><a href="#" onclick="verDetalle(' + s.id + '); return false;" class="me-2">Detalle</a><a href="/api/cash-register/' + s.id + '/report-pdf" target="_blank" class="text-danger"><i class="bi bi-file-pdf"></i> PDF</a>' : '-';
+        html += '<tr><td>' + (s.opened_at ? new Date(s.opened_at).toLocaleString('es-CR') : '-') + '</td><td>' + (s.closed_at ? new Date(s.closed_at).toLocaleString('es-CR') : 'Abierta') + '</td><td>₡ ' + fmt(s.opening_balance) + '</td><td>' + (s.closing_balance != null ? '₡ ' + fmt(s.closing_balance) : '-') + '</td><td>' + diff + '</td><td>' + links + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('historial-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('historial-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+
+function verDetalle(id) {
+  document.getElementById('card-detalle').style.display = 'block';
+  loadDetalle(id);
+  history.replaceState({}, '', '/caja?session_id=' + id);
+}
+
+function cerrarDetalle() {
+  document.getElementById('card-detalle').style.display = 'none';
+  history.replaceState({}, '', '/caja');
+}
+
+function loadDetalle(id) {
+  document.getElementById('detalle-loading').style.display = 'block';
+  document.getElementById('detalle-content').style.display = 'none';
+  document.getElementById('detalle-session-id').textContent = '# ' + id;
+  apiGet('/api/cash-register/' + id + '/detail')
+    .then(data => {
+      document.getElementById('detalle-loading').style.display = 'none';
+      document.getElementById('detalle-content').style.display = 'block';
+      const s = data.session || {};
+      document.getElementById('d-apertura').textContent = s.opened_at ? new Date(s.opened_at).toLocaleString('es-CR') : '-';
+      document.getElementById('d-cierre').textContent = s.closed_at ? new Date(s.closed_at).toLocaleString('es-CR') : '-';
+      document.getElementById('d-ventas').textContent = '₡ ' + fmt(s.sales_total);
+      document.getElementById('d-gastos').textContent = '₡ ' + fmt(s.expenses_total);
+      document.getElementById('d-saldo').textContent = s.closing_balance != null ? '₡ ' + fmt(s.closing_balance) : '-';
+      const diff = s.difference != null ? (s.difference >= 0 ? '+' : '') + '₡ ' + fmt(s.difference) : '-';
+      document.getElementById('d-diff').textContent = diff;
+      document.getElementById('d-diff').className = 'mb-0 ' + (s.difference > 0 ? 'text-success' : s.difference < 0 ? 'text-danger' : '');
+      const orders = data.orders || [];
+      document.getElementById('d-ventas-list').textContent = orders.length ? orders.length + ' pedido(s)' : 'Sin ventas';
+      const expenses = data.expenses || [];
+      document.getElementById('d-gastos-list').textContent = expenses.length ? expenses.length + ' gasto(s)' : 'Sin gastos';
+      document.getElementById('btn-pdf').href = '/api/cash-register/' + id + '/report-pdf';
+    })
+    .catch(e => {
+      document.getElementById('detalle-loading').style.display = 'none';
+      showMsg(msg, 'Error: ' + e.message, 'error');
+      cerrarDetalle();
+    });
+}
+
+function registrarGasto() {
+  document.getElementById('gasto-monto').value = '';
+  document.getElementById('gasto-desc').value = '';
+  document.getElementById('gasto-compra').value = '';
+  loadComprasParaGasto();
+  modalShow('modal-gasto');
+}
+
+function loadComprasParaGasto() {
+  const sel = document.getElementById('gasto-compra');
+  sel.innerHTML = '<option value="">-- Cargando... --</option>';
+  apiGet('/api/purchases?limit=50')
+    .then(orders => {
+      sel.innerHTML = '<option value="">-- Sin vincular --</option>';
+      (orders || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        const supp = o.supplier ? o.supplier.name : '?';
+        opt.textContent = (o.order_number || '#' + o.id) + ' - ' + supp + ' (₡ ' + fmt(o.total || 0) + ')';
+        sel.appendChild(opt);
+      });
+    })
+    .catch(() => { sel.innerHTML = '<option value="">-- Sin vincular --</option>'; });
+}
+
+function guardarGasto() {
+  const monto = parseFloat(document.getElementById('gasto-monto').value);
+  if (!monto || monto <= 0) { showMsg(msg, 'Ingresa un monto válido.', 'error'); return; }
+  const compraId = document.getElementById('gasto-compra').value;
+  apiPost('/api/operational-expenses', {
+    amount: monto,
+    description: document.getElementById('gasto-desc').value.trim() || null,
+    payment_type: document.getElementById('gasto-pago').value,
+    cash_register_id: currentSessionId,
+    purchase_order_id: compraId ? parseInt(compraId, 10) : null
+  })
+    .then(() => { modalHide('modal-gasto'); showMsg(msg, 'Gasto registrado.', 'success'); loadCaja(); })
+    .catch(e => showMsg(msg, e.message, 'error'));
+}
+
+function irArqueoZ() {
+  if (currentSessionId) window.location.href = '/caja/arqueo/' + currentSessionId;
+  else showMsg(msg, 'No hay caja abierta.', 'error');
+}
+function mostrarCierre() {
+  const expected = document.getElementById('session-expected').textContent;
+  document.getElementById('cierre-expected').value = expected;
+  document.getElementById('cierre-monto').value = '';
+  document.getElementById('cierre-notes').value = '';
+  modalShow('modal-cierre');
+}
+
+function cerrarCaja() {
+  const monto = parseFloat(document.getElementById('cierre-monto').value);
+  if (monto < 0) { showMsg(msg, 'Monto inválido.', 'error'); return; }
+  apiPost('/api/cash-register/' + currentSessionId + '/close', {
+    closing_balance: monto,
+    notes: document.getElementById('cierre-notes').value.trim() || null
+  })
+    .then(() => { modalHide('modal-cierre'); showMsg(msg, 'Caja cerrada.', 'success'); currentSessionId = null; loadCaja(); loadHistorial(); })
+    .catch(e => showMsg(msg, e.message, 'error'));
+}
+
+loadCaja();
+loadHistorial();
+
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get('session_id');
+  if (sid) {
+    document.getElementById('card-detalle').style.display = 'block';
+    loadDetalle(parseInt(sid, 10));
+  }
+})();
+</script>
+{% endblock %}

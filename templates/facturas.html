@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Facturas{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Facturación electrónica</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Emitir factura desde pedido</h5>
+    <p class="text-muted small">Selecciona un pedido pagado para generar la factura (FE o TE). Modo simulación: HACIENDA_SIMULATION=1.</p>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Pedido (pagado)</label>
+        <select id="factura-order-id" class="form-select">
+          <option value="">-- Seleccionar pedido --</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Cliente (opcional)</label>
+        <select id="factura-cliente-id" class="form-select">
+          <option value="">-- Sin cliente (consumidor final) --</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Tipo</label>
+        <select id="factura-tipo" class="form-select">
+          <option value="FE">Factura electrónica</option>
+          <option value="TE">Tiquete electrónico</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="button" class="btn btn-primary w-100" onclick="emitirFactura()"><i class="bi bi-file-earmark-plus me-1"></i>Emitir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Facturas emitidas</h5>
+    <div class="mb-2">
+      <input type="text" id="buscar-factura" class="form-control form-control-sm" placeholder="Buscar por consecutivo o clave" style="max-width: 280px;" onkeyup="if(event.key==='Enter') loadFacturas()">
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="loadFacturas()">Buscar</button>
+    </div>
+    <div id="facturas-loading" class="text-muted py-3">Cargando...</div>
+    <div id="facturas-content" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+
+function loadPedidosPagados() {
+  Promise.all([apiGet('/api/orders?status=paid'), apiGet('/api/invoices?limit=500')])
+    .then(([ordersData, invoicesData]) => {
+      const orders = ordersData || [];
+      const invoices = invoicesData || [];
+      const orderIdsFacturados = new Set((invoices).map(f => f.order_id).filter(Boolean));
+      const pedidosSinFacturar = orders.filter(o => !orderIdsFacturados.has(o.id));
+      const sel = document.getElementById('factura-order-id');
+      sel.innerHTML = '<option value="">-- Seleccionar pedido --</option>';
+      pedidosSinFacturar.forEach(o => {
+        const total = (o.items || []).reduce((s, i) => s + (i.quantity || 0) * (i.unit_price || 0), 0);
+        sel.innerHTML += '<option value="' + o.id + '"># ' + o.id + ' - Mesa ' + (o.table_id || '?') + ' - ₡ ' + total.toLocaleString('es-CR', {minimumFractionDigits: 2}) + '</option>';
+      });
+      if (pedidosSinFacturar.length === 0 && orders.length > 0) {
+        sel.innerHTML += '<option value="" disabled>-- Todos los pedidos ya tienen factura --</option>';
+      }
+    })
+    .catch(() => {});
+}
+
+function loadClientes() {
+  apiGet('/api/clients')
+    .then(data => {
+      const sel = document.getElementById('factura-cliente-id');
+      sel.innerHTML = '<option value="">-- Sin cliente (consumidor final) --</option>';
+      (data || []).filter(c => c.active !== false).forEach(c => {
+        sel.innerHTML += '<option value="' + c.id + '">' + (c.name || '') + (c.tax_id ? ' (' + c.tax_id + ')' : '') + '</option>';
+      });
+    })
+    .catch(() => {});
+}
+
+function loadFacturas() {
+  document.getElementById('facturas-loading').style.display = 'block';
+  document.getElementById('facturas-content').style.display = 'none';
+  let url = '/api/invoices?limit=50';
+  const search = document.getElementById('buscar-factura').value.trim();
+  if (search) url += '&search=' + encodeURIComponent(search);
+  apiGet(url)
+    .then(data => {
+      document.getElementById('facturas-loading').style.display = 'none';
+      document.getElementById('facturas-content').style.display = 'block';
+      if (!data || data.length === 0) {
+        document.getElementById('facturas-content').innerHTML = '<p class="text-muted mb-0">No hay facturas emitidas.</p>';
+        return;
+      }
+      let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Consecutivo</th><th>Tipo</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>';
+      data.forEach(f => {
+        html += '<tr><td>' + (f.created_at ? new Date(f.created_at).toLocaleDateString('es-CR') : '-') + '</td><td>' + (f.consecutivo || '-') + '</td><td>' + (f.tipo_documento || '') + '</td><td>₡ ' + (f.total != null ? Number(f.total).toLocaleString('es-CR', {minimumFractionDigits: 2}) : '0') + '</td><td>' + (f.estado_hacienda || '-') + (f.is_simulated ? ' (simulado)' : '') + '</td><td><a href="/facturas/' + f.id + '/imprimir" target="_blank" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-printer"></i> Imprimir</a></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('facturas-content').innerHTML = html;
+    })
+    .catch(e => { document.getElementById('facturas-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+}
+
+function emitirFactura() {
+  const orderId = document.getElementById('factura-order-id').value;
+  if (!orderId) { showMsg(msg, 'Selecciona un pedido pagado.', 'error'); return; }
+  const clienteId = document.getElementById('factura-cliente-id').value || null;
+  const tipo = document.getElementById('factura-tipo').value || 'FE';
+  apiPost('/api/invoices', { order_id: parseInt(orderId, 10), cliente_id: clienteId ? parseInt(clienteId, 10) : null, tipo_documento: tipo })
+    .then(() => { showMsg(msg, 'Factura emitida.', 'success'); loadFacturas(); loadPedidosPagados(); })
+    .catch(e => showMsg(msg, e.message, 'error'));
+}
+
+loadPedidosPagados();
+loadClientes();
+loadFacturas();
+</script>
+{% endblock %}

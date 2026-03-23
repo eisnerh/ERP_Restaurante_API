@@ -1,5 +1,6 @@
 """API de mesas."""
 from flask import Blueprint, request, jsonify
+from sqlalchemy import func
 from extensions import db
 from models import Table
 from schemas import TableSchema
@@ -38,12 +39,23 @@ def get_table(table_id):
 
 @tables_bp.route("", methods=["POST"])
 def create_table():
-    """Crea una mesa."""
+    """Crea una mesa. Si no se indica number, se asigna el siguiente disponible."""
     fid = get_or_default_franchisee_id()
     if not fid:
         return jsonify({"error": "Selecciona un franquiciado"}), 400
     data = request.get_json() or {}
     data["franchisee_id"] = fid
+    number = data.get("number")
+    if number is not None:
+        existing = Table.query.filter_by(franchisee_id=fid, number=int(number)).first()
+        if existing:
+            return jsonify({"error": f"Ya existe la mesa número {number} para este franquiciado"}), 400
+    else:
+        # Asignar siguiente número disponible
+        max_num = db.session.query(func.coalesce(func.max(Table.number), 0)).filter_by(
+            franchisee_id=fid
+        ).scalar()
+        data["number"] = int(max_num) + 1
     table = table_schema.load(data, session=db.session)
     db.session.add(table)
     db.session.commit()
@@ -52,10 +64,15 @@ def create_table():
 
 @tables_bp.route("/<int:table_id>", methods=["PUT"])
 def update_table(table_id):
-    """Actualiza una mesa."""
+    """Actualiza una mesa. Valida que el número no esté duplicado."""
     fid = get_or_default_franchisee_id()
     table = Table.query.filter_by(id=table_id, franchisee_id=fid).first_or_404()
     data = request.get_json() or {}
+    new_number = data.get("number")
+    if new_number is not None:
+        existing = Table.query.filter_by(franchisee_id=fid, number=int(new_number)).first()
+        if existing and existing.id != table_id:
+            return jsonify({"error": f"Ya existe la mesa número {new_number} para este franquiciado"}), 400
     table_schema.load(data, instance=table, session=db.session, partial=True)
     db.session.commit()
     return jsonify(table_schema.dump(table))

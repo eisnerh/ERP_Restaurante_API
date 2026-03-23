@@ -53,26 +53,23 @@
       </div>
       {% endif %}
       <nav class="nav flex-column">
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.index') }}"><i class="bi bi-house me-2"></i>Inicio</a>
-        <div class="border-bottom">
-          <button class="nav-link py-3 px-3 w-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#menu-frontdesk" aria-expanded="true" aria-controls="menu-frontdesk">
-            <span><i class="bi bi-display me-2"></i>Frontdesk</span>
-            <i class="bi bi-chevron-down small menu-toggle-icon"></i>
-          </button>
-          <div class="collapse show" id="menu-frontdesk">
-            <a class="nav-link py-2 px-3 ps-5 border-top" href="{{ url_for('web.menu') }}"><i class="bi bi-journal-richtext me-2"></i>Menú</a>
-            <a class="nav-link py-2 px-3 ps-5" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
-            <a class="nav-link py-2 px-3 ps-5" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a>
-            <a class="nav-link py-2 px-3 ps-5 pb-3" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a>
-          </div>
-        </div>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.inventario') }}"><i class="bi bi-box-seam me-2"></i>Inventario</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.proveedores') }}"><i class="bi bi-truck me-2"></i>Proveedores</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.compras') }}"><i class="bi bi-cart-check me-2"></i>Compras</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.planilla') }}"><i class="bi bi-people me-2"></i>Planilla</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.control_gastos') }}"><i class="bi bi-cash-stack me-2"></i>Control de gastos</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Casas de Don Raul</a>
-        <a class="nav-link py-3 px-3 border-bottom" href="{{ url_for('web.configuracion') }}"><i class="bi bi-gear me-2"></i>Configuración</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.index') }}"><i class="bi bi-house me-2"></i>Inicio</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.menu') }}"><i class="bi bi-journal-richtext me-2"></i>Menú</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.mesas') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Mesas</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.pedidos') }}"><i class="bi bi-receipt me-2"></i>Pedidos</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.caja') }}"><i class="bi bi-cash-coin me-2"></i>Caja</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.facturas') }}"><i class="bi bi-file-earmark-text me-2"></i>Facturas</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.clientes') }}"><i class="bi bi-person-badge me-2"></i>Clientes</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.reportes') }}"><i class="bi bi-graph-up me-2"></i>Reportes</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.inventario') }}"><i class="bi bi-box-seam me-2"></i>Inventario</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.proveedores') }}"><i class="bi bi-truck me-2"></i>Proveedores</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.compras') }}"><i class="bi bi-cart-check me-2"></i>Compras</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.planilla') }}"><i class="bi bi-people me-2"></i>Planilla</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.control_gastos') }}"><i class="bi bi-cash-stack me-2"></i>Control de gastos</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.franquiciados') }}"><i class="bi bi-shop me-2"></i>Casas</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.medios_pago') }}"><i class="bi bi-credit-card me-2"></i>Medios de pago</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.motivos_descuento') }}"><i class="bi bi-percent me-2"></i>Motivos descuento</a>
+        <a class="nav-link py-2 px-3 border-bottom" href="{{ url_for('web.configuracion') }}"><i class="bi bi-gear me-2"></i>Configuración</a>
       </nav>
     </div>
   </div>

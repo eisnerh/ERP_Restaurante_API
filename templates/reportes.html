@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Reportes de ventas</h1>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-calendar-range me-2"></i>Período</h5>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Desde</label>
+        <input type="date" id="r-desde" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Hasta</label>
+        <input type="date" id="r-hasta" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-primary" onclick="cargarReportes()"><i class="bi bi-search me-1"></i>Consultar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-success">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-cash-coin me-1"></i>Ingresos (ventas cobradas)</h6>
+        <p class="card-text h4 mb-0 text-success" id="rep-ingresos">₡ 0</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-danger">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-dash-circle me-1"></i>Gastos operacionales</h6>
+        <p class="card-text h4 mb-0 text-danger" id="rep-gastos">₡ 0</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-primary text-white">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 opacity-75">Utilidad bruta</h6>
+        <p class="card-text h4 mb-0" id="rep-utilidad">₡ 0</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0">Ventas por tipo de pago</h6></div>
+      <div class="card-body">
+        <div id="rep-pago-loading" class="text-muted py-3">Cargando...</div>
+        <div id="rep-pago-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0">Platos más vendidos (top 10)</h6></div>
+      <div class="card-body">
+        <div id="rep-top-loading" class="text-muted py-3">Cargando...</div>
+        <div id="rep-top-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const msg = document.getElementById('msg');
+function fmt(n) { return (n != null ? Number(n) : 0).toLocaleString('es-CR', {minimumFractionDigits: 2}); }
+
+function getParams() {
+  const h = document.getElementById('r-hasta').value;
+  const d = document.getElementById('r-desde').value;
+  const hasta = h || new Date().toISOString().slice(0, 10);
+  const desde = d || (function(){const x=new Date(); x.setDate(x.getDate()-30); return x.toISOString().slice(0,10);})();
+  return { desde, hasta };
+}
+
+function cargarReportes() {
+  const { desde, hasta } = getParams();
+  const base = '?desde=' + encodeURIComponent(desde) + '&hasta=' + encodeURIComponent(hasta);
+
+  // Ingresos vs gastos
+  apiGet('/api/reports/income-vs-expenses' + base)
+    .then(data => {
+      document.getElementById('rep-ingresos').textContent = '₡ ' + fmt(data.ingresos);
+      document.getElementById('rep-gastos').textContent = '₡ ' + fmt(data.gastos);
+      document.getElementById('rep-utilidad').textContent = '₡ ' + fmt(data.utilidad_bruta);
+    })
+    .catch(e => showMsg(msg, 'Error: ' + e.message, 'error'));
+
+  // Ventas por tipo de pago
+  document.getElementById('rep-pago-loading').style.display = 'block';
+  document.getElementById('rep-pago-content').style.display = 'none';
+  apiGet('/api/reports/sales-by-payment-type' + base)
+    .then(data => {
+      document.getElementById('rep-pago-loading').style.display = 'none';
+      document.getElementById('rep-pago-content').style.display = 'block';
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('rep-pago-content').innerHTML = '<p class="text-muted mb-0">Sin datos.</p>';
+      } else {
+        let html = '<ul class="list-group list-group-flush">';
+        data.data.forEach(r => {
+          html += '<li class="list-group-item d-flex justify-content-between"><span>' + (r.tipo || '') + '</span><span>₡ ' + fmt(r.total) + ' (' + (r.cantidad || 0) + ')</span></li>';
+        });
+        html += '</ul>';
+        document.getElementById('rep-pago-content').innerHTML = html;
+      }
+    })
+    .catch(() => { document.getElementById('rep-pago-loading').style.display = 'none'; });
+
+  // Top productos
+  document.getElementById('rep-top-loading').style.display = 'block';
+  document.getElementById('rep-top-content').style.display = 'none';
+  apiGet('/api/reports/top-products' + base + '&limit=10')
+    .then(data => {
+      document.getElementById('rep-top-loading').style.display = 'none';
+      document.getElementById('rep-top-content').style.display = 'block';
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('rep-top-content').innerHTML = '<p class="text-muted mb-0">Sin datos.</p>';
+      } else {
+        let html = '<ul class="list-group list-group-flush">';
+        data.data.forEach(r => {
+          html += '<li class="list-group-item d-flex justify-content-between"><span>' + (r.producto || '') + '</span><span>' + (r.cantidad || 0) + ' uds · ₡ ' + fmt(r.monto) + '</span></li>';
+        });
+        html += '</ul>';
+        document.getElementById('rep-top-content').innerHTML = html;
+      }
+    })
+    .catch(() => { document.getElementById('rep-top-loading').style.display = 'none'; });
+}
+
+// Init fechas
+(function(){
+  const hoy = new Date();
+  document.getElementById('r-hasta').value = hoy.toISOString().slice(0, 10);
+  const desde = new Date();
+  desde.setDate(desde.getDate() - 30);
+  document.getElementById('r-desde').value = desde.toISOString().slice(0, 10);
+})();
+cargarReportes();
+</script>
+{% endblock %}

@@ -176,6 +176,8 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Puestos y deducciones estándar global (BD existente) | `python scripts/migrate_standard_positions_deductions.py` |
 | Campos HR empleados (cédula, salario, vacaciones) | `python scripts/migrate_hr_employee_fields.py` |
 | Columna hrs_negativas en planilla | `python scripts/migrate_hrs_negativas.py` |
+| Caja, facturas y gastos operacionales | `python scripts/migrate_caja_facturas.py` |
+| Arqueo Z (desglose cierre caja) | `python scripts/migrate_arqueo_z.py` |
 | Datos de menú (opcional) | `python seed.py` |
 
 ---

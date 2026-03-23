@@ -2,7 +2,7 @@
 {% block title %}Control de gastos{% endblock %}
 {% block content %}
 <h1 class="h4 mb-4">Control de gastos</h1>
-<p class="text-muted mb-4">Consulta los gastos por período de planilla: compras para inventario y planilla de personal.</p>
+<p class="text-muted mb-4">Consulta los gastos por período: compras para inventario, planilla de personal y gastos de caja chica.</p>
 
 <div class="card mb-4">
   <div class="card-body">
@@ -37,7 +37,7 @@
 <div id="summary-loading" class="text-center text-muted py-5" style="display:none;">Cargando...</div>
 <div id="summary-content" style="display:none;">
   <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card border-primary">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-cart-check me-1"></i>Compras (inventario)</h6>
@@ -46,7 +46,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card border-primary">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-people me-1"></i>Planilla</h6>
@@ -55,7 +55,16 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+      <div class="card border-primary">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-cash-stack me-1"></i>Caja chica</h6>
+          <p class="card-text h4 mb-0" id="operational-total">₡ 0</p>
+          <small class="text-muted" id="operational-count">0 gastos</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
       <div class="card bg-primary text-white">
         <div class="card-body">
           <h6 class="card-subtitle mb-2 opacity-75">Total gastos</h6>
@@ -67,6 +76,7 @@
   <div class="d-flex gap-2">
     <a id="link-compras" href="#" class="btn btn-outline-secondary btn-sm">Ver compras</a>
     <a id="link-planilla" href="#" class="btn btn-outline-secondary btn-sm">Ver planilla</a>
+    <a id="link-caja" href="{{ url_for('web.caja') }}" class="btn btn-outline-secondary btn-sm">Ver caja</a>
   </div>
 </div>
 
@@ -106,12 +116,15 @@ function loadSummary() {
       document.getElementById('summary-content').style.display = 'block';
       var pt = data.purchases_total != null ? data.purchases_total : 0;
       var pl = data.payroll_total != null ? data.payroll_total : 0;
-      var tot = data.total != null ? data.total : pt + pl;
+      var op = data.operational_total != null ? data.operational_total : 0;
+      var tot = data.total != null ? data.total : pt + pl + op;
       document.getElementById('purchases-total').textContent = '₡ ' + pt.toLocaleString('es-CR', {minimumFractionDigits: 2});
       document.getElementById('payroll-total').textContent = '₡ ' + pl.toLocaleString('es-CR', {minimumFractionDigits: 2});
+      document.getElementById('operational-total').textContent = '₡ ' + op.toLocaleString('es-CR', {minimumFractionDigits: 2});
       document.getElementById('total-gastos').textContent = '₡ ' + tot.toLocaleString('es-CR', {minimumFractionDigits: 2});
       document.getElementById('purchases-count').textContent = (data.purchases_count || 0) + ' orden(es)';
       document.getElementById('payroll-count').textContent = (data.payroll_count || 0) + ' desglose(s)';
+      document.getElementById('operational-count').textContent = (data.operational_count || 0) + ' gasto(s)';
       document.getElementById('link-compras').href = "{{ url_for('web.compras') }}";
       document.getElementById('link-planilla').href = "{{ url_for('web.planilla') }}";
     })

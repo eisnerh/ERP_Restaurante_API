@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiquete Pedido #{{ order.id }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 14px; padding: 16px; max-width: 320px; margin: 0 auto; }
+    @media print {
+      body { padding: 8px; }
+      .no-print { display: none !important; }
+    }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .divider { border-top: 1px dashed #333; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; margin: 4px 0; }
+    .row .qty { min-width: 24px; text-align: right; margin-right: 8px; }
+    .row .name { flex: 1; }
+    .row .price { min-width: 60px; text-align: right; }
+    h1 { font-size: 16px; margin-bottom: 4px; }
+    .subtotal { margin-top: 8px; font-size: 15px; }
+    .meta { font-size: 11px; color: #666; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 12px;">
+    <button type="button" onclick="window.print()" style="padding: 8px 16px; font-size: 14px; cursor: pointer;">
+      🖨️ Imprimir
+    </button>
+  </div>
+  <h1 class="center">PEDIDO #{{ order.id }}{% if order.ticket_emitted_at %} <span style="font-size:11px; font-weight:normal;">(Reimpresión)</span>{% endif %}</h1>
+  <p class="center">Mesa {{ order.table.number if order.table else order.table_id }}</p>
+  <p class="center meta">{{ order.created_at.strftime('%d/%m/%Y %H:%M') if order.created_at else '-' }}{% if order.ticket_emitted_at %} | Emitido: {{ order.ticket_emitted_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}</p>
+  <div class="divider"></div>
+  {% for item in order.items %}
+  <div class="row">
+    <span class="qty">{{ item.quantity }}x</span>
+    <span class="name">{{ item.dish.name if item.dish else 'Plato' }}</span>
+    <span class="price">₡ {{ "%.2f"|format((item.quantity or 0) * (item.unit_price or 0)) }}</span>
+  </div>
+  {% endfor %}
+  <div class="divider"></div>
+  <div class="row bold subtotal">
+    <span>TOTAL</span>
+    <span>₡ {{ "%.2f"|format(order.total() or 0) }}</span>
+  </div>
+  {% if order.notes %}
+  <div class="divider"></div>
+  <p><strong>Notas:</strong> {{ order.notes }}</p>
+  {% endif %}
+  <p class="center meta" style="margin-top: 16px;">{{ app_name or 'ERP Restaurante' }} | Estado: {{ order.status or 'pendiente' }}</p>
+  <script>
+    if (window.location.search.indexOf('print=1') >= 0) {
+      window.onload = function() { window.print(); };
+    }
+  </script>
+</body>
+</html>

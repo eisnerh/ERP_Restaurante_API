@@ -25,6 +25,84 @@ def pedidos():
     return render_template("pedidos.html")
 
 
+@web_bp.route("/pedidos/<int:order_id>/tiquete")
+def pedido_tiquete(order_id):
+    """Tiquete imprimible del pedido. En el primer acceso marca el tiquete como emitido."""
+    from datetime import datetime
+    from utils.franchisee import get_or_default_franchisee_id
+    from models import Order, Table
+    from extensions import db
+    from flask import abort
+
+    fid = get_or_default_franchisee_id()
+    order = Order.query.join(Table).filter(
+        Order.id == order_id,
+        Table.franchisee_id == fid
+    ).first()
+    if not order:
+        abort(404)
+    if getattr(order, "ticket_emitted_at", None) is None:
+        order.ticket_emitted_at = datetime.utcnow()
+        db.session.commit()
+    try:
+        from models import AppSettings
+        s = AppSettings.get(franchisee_id=fid)
+        app_name = s.app_name if s else None
+    except Exception:
+        app_name = None
+    return render_template("tiquete_pedido.html", order=order, app_name=app_name)
+
+
+@web_bp.route("/caja")
+def caja():
+    return render_template("caja.html")
+
+
+@web_bp.route("/caja/arqueo/<int:session_id>")
+def caja_arqueo(session_id):
+    return render_template("caja_arqueo.html", session_id=session_id)
+
+
+@web_bp.route("/facturas")
+def facturas():
+    return render_template("facturas.html")
+
+
+@web_bp.route("/facturas/<int:invoice_id>/imprimir")
+def factura_imprimir(invoice_id):
+    """Vista imprimible de factura o tiquete electrónico."""
+    from utils.franchisee import get_or_default_franchisee_id
+    from models import Invoice
+    from flask import abort
+
+    fid = get_or_default_franchisee_id()
+    inv = Invoice.query.filter_by(id=invoice_id, franchisee_id=fid).first()
+    if not inv:
+        abort(404)
+    try:
+        from models import AppSettings
+        s = AppSettings.get(franchisee_id=fid)
+        app_name = s.app_name if s else None
+    except Exception:
+        app_name = None
+    return render_template("factura_imprimir.html", inv=inv, app_name=app_name)
+
+
+@web_bp.route("/reportes")
+def reportes():
+    return render_template("reportes.html")
+
+
+@web_bp.route("/medios-pago")
+def medios_pago():
+    return render_template("medios_pago.html")
+
+
+@web_bp.route("/motivos-descuento")
+def motivos_descuento():
+    return render_template("motivos_descuento.html")
+
+
 @web_bp.route("/inventario")
 def inventario():
     return render_template("inventario.html")

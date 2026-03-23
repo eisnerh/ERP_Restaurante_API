@@ -57,8 +57,14 @@ def import_inventario(file_bytes, franchisee_id, replace=False):
         return 0, "Selecciona un franquiciado"
 
     if replace:
-        from sqlalchemy import delete
-        db.session.execute(delete(item_suppliers))
+        from sqlalchemy import delete, update
+        from models import PurchaseOrderItem
+        item_ids = [r[0] for r in db.session.query(InventoryItem.id).filter_by(franchisee_id=franchisee_id).all()]
+        if item_ids:
+            db.session.execute(
+                update(PurchaseOrderItem).where(PurchaseOrderItem.inventory_item_id.in_(item_ids)).values(inventory_item_id=None)
+            )
+            db.session.execute(delete(item_suppliers).where(item_suppliers.c.inventory_item_id.in_(item_ids)))
         InventoryItem.query.filter_by(franchisee_id=franchisee_id).delete()
 
     created = 0
@@ -274,20 +280,21 @@ def import_mesas(file_bytes, franchisee_id):
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
     ws = wb.active
     created = 0
+    added_numbers = set()  # Evitar duplicados dentro del mismo Excel
     for row in ws.iter_rows(min_row=2, values_only=True):
         row = list(row) if row else []
         numero = _to_float(row[0]) if len(row) > 0 else None
         if numero is None or numero < 1:
             continue
-        capacidad = int(_to_float(row[1], 1) or 1)
-        pos_x = int(_to_float(row[2], 0) or 0)
-        pos_y = int(_to_float(row[3], 0) or 0)
-        ocupada = _parse_si_no(row[4]) if len(row) > 4 else False
-        if Table.query.filter_by(franchisee_id=franchisee_id, number=int(numero)).first():
+        num_int = int(numero)
+        if num_int in added_numbers:
             continue
+        if Table.query.filter_by(franchisee_id=franchisee_id, number=num_int).first():
+            continue
+        added_numbers.add(num_int)
         t = Table(
             franchisee_id=franchisee_id,
-            number=int(numero),
+            number=num_int,
             capacity=capacidad,
             position_x=pos_x,
             position_y=pos_y,

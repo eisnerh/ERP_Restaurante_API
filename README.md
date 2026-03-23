@@ -12,7 +12,10 @@ Sistema de gestión integral para **franquicias de restaurantes**. Permite admin
 |--------|-------------|
 | **Menú** | Categorías y platos con precios |
 | **Mesas** | Control de mesas y ocupación |
-| **Pedidos** | Órdenes por mesa, estados (pendiente, preparando, servido, pagado) |
+| **Pedidos** | Órdenes por mesa, estados, medio de pago, asociación a caja |
+| **Caja** | Apertura/cierre de sesión, gastos operacionales, conciliación |
+| **Facturas** | Facturación electrónica (FE/TE) con simulación Hacienda CR |
+| **Reportes** | Ventas por período, top platos, ingresos vs gastos, por tipo de pago |
 | **Inventario** | Productos de salón y cocina, existencias, stock, alertas de faltantes |
 | **Proveedores** | Gestión de proveedores e importación desde Excel |
 | **Clientes** | Base de datos de clientes |
@@ -53,6 +56,7 @@ pip install -r requirements.txt
 # Copiar .env.example a .env y configurar DATABASE_URL (PostgreSQL)
 python scripts/init_db.py
 python scripts/migrate_hrs_negativas.py   # Si actualizas desde versión anterior
+python scripts/migrate_caja_facturas.py   # Caja, facturas y reportes (opcional)
 python scripts/import_inventory_excel.py --franchisee-id 1   # Opcional
 python app.py
 ```

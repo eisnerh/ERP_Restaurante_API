@@ -6,6 +6,9 @@ from .category import Category
 from .dish import Dish
 from .table_model import Table
 from .order import Order, OrderItem
+from .cash_register import CashRegisterSession
+from .operational_expense import OperationalExpense
+from .invoice import Invoice, InvoiceItem
 from .inventory import InventoryItem
 from .inventory_alert import InventoryAlert
 from .supplier import Supplier
@@ -23,10 +26,13 @@ from .payment_record import PaymentRecord
 from .unit import Unit
 from .app_settings import AppSettings
 from .holiday import Holiday
+from .payment_method import PaymentMethod
+from .discount_reason import DiscountReason
 
 __all__ = [
     "Franchisee",
     "Category", "Dish", "Table", "Order", "OrderItem",
+    "CashRegisterSession", "OperationalExpense", "Invoice", "InvoiceItem",
     "InventoryItem", "InventoryAlert", "Supplier",
     "Client", "PurchaseOrder", "PurchaseOrderItem",
     "PayrollLocation", "PayrollEntryType", "Position", "DeductionType", "Employee", "VacationRecord", "PayrollEntry",
@@ -35,4 +41,6 @@ __all__ = [
     "Unit",
     "AppSettings",
     "Holiday",
+    "PaymentMethod",
+    "DiscountReason",
 ]

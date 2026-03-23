@@ -70,15 +70,26 @@ function loadMesas() {
       }
       const maxX = Math.max(0, ...list.map(t => (t.position_x != null ? t.position_x : 0)));
       const maxY = Math.max(0, ...list.map(t => (t.position_y != null ? t.position_y : 0)));
-      const cols = maxX + 1;
-      const rows = maxY + 1;
-      let gridStyle = 'grid-template-columns: repeat(' + cols + ', minmax(100px, 1fr));';
-      gridStyle += ' grid-template-rows: repeat(' + rows + ', auto);';
+      let cols = maxX + 1;
+      let rows = maxY + 1;
+      const wouldOverlap = cols * rows < list.length;
+      if (wouldOverlap) {
+        cols = Math.min(list.length, 4);
+        rows = Math.ceil(list.length / cols);
+      }
+      let gridStyle = 'display: grid; grid-template-columns: repeat(' + cols + ', minmax(100px, 1fr));';
+      gridStyle += ' grid-template-rows: repeat(' + rows + ', auto); gap: 12px;';
       let html = '<p class="mb-2" style="font-size:0.9rem; color:#555;">Doble clic en una mesa para editar. Clic en Libre/Ocupada para cambiar estado.</p>';
       html += '<div class="mesas-grid" style="' + gridStyle + '">';
-      list.forEach(t => {
-        const x = (t.position_x != null ? t.position_x : 0);
-        const y = (t.position_y != null ? t.position_y : 0);
+      list.forEach((t, idx) => {
+        let x, y;
+        if (wouldOverlap) {
+          x = idx % cols;
+          y = Math.floor(idx / cols);
+        } else {
+          x = (t.position_x != null ? t.position_x : 0);
+          y = (t.position_y != null ? t.position_y : 0);
+        }
         const cap = t.capacity != null ? t.capacity : '-';
         const occ = t.occupied === true;
         const cls = occ ? 'ocupada' : 'libre';

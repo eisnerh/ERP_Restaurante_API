@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Motivos de descuento{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h1 class="h4 mb-3 text-uppercase" style="color: var(--rc-primary);">MOTIVO DESCUENTO</h1>
+  </div>
+</div>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div class="row">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <form id="form-descuento" onsubmit="guardarDescuento(event)">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <div class="input-group">
+              <input type="text" id="desc-nombre" class="form-control" placeholder="Ej: Desc. Empleados 20%" required>
+              <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormDesc()" title="Limpiar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tienda</label>
+            <div class="input-group">
+              <input type="text" id="desc-tienda" class="form-control" readonly>
+              <button type="button" class="btn btn-outline-secondary" title="Tienda actual">
+                <i class="bi bi-shop"></i>
+              </button>
+            </div>
+            <small class="text-muted">Cambia la casa en el menú superior.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Porcentaje <small class="text-muted">(opcional)</small></label>
+            <input type="number" id="desc-porcentaje" class="form-control" min="0" max="100" step="0.01" placeholder="20">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripción <small class="text-muted">(opcional)</small></label>
+            <input type="text" id="desc-descripcion" class="form-control" placeholder="Detalle del motivo">
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>+ Nuevo motivo descuento</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-3 text-muted">Motivos configurados</h6>
+        <div id="lista-desc" class="list-group list-group-flush">
+          <div id="lista-desc-loading" class="text-muted py-4 text-center">Cargando...</div>
+          <div id="lista-desc-content" style="display:none;"></div>
+        </div>
+        <p class="small text-muted mt-2 mb-0" id="lista-desc-empty" style="display:none;">No hay motivos de descuento. Agrega uno en el formulario.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const msg = document.getElementById('msg');
+let editingId = null;
+
+function loadTienda() {
+  const name = "{{ current_franchisee.name if current_franchisee else 'Selecciona casa' }}";
+  document.getElementById('desc-tienda').value = name || 'Selecciona una casa';
+}
+
+function loadDescuentos() {
+  document.getElementById('lista-desc-loading').style.display = 'block';
+  document.getElementById('lista-desc-content').style.display = 'none';
+  document.getElementById('lista-desc-empty').style.display = 'none';
+  apiGet('/api/discount-reasons?all=1')
+    .then(data => {
+      document.getElementById('lista-desc-loading').style.display = 'none';
+      document.getElementById('lista-desc-content').style.display = 'block';
+      if (!data || data.length === 0) {
+        document.getElementById('lista-desc-content').innerHTML = '';
+        document.getElementById('lista-desc-empty').style.display = 'block';
+        return;
+      }
+      let html = '';
+      data.forEach(d => {
+        const pct = d.percentage != null ? ' ' + d.percentage + '%' : '';
+        const badge = d.active ? '' : ' <span class="badge bg-secondary">Inactivo</span>';
+        html += '<div class="list-group-item d-flex justify-content-between align-items-center">';
+        html += '<span>' + (d.name || '') + pct + badge + '</span>';
+        html += '<div><button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="editarDesc(' + d.id + ',\'' + (d.name || '').replace(/'/g, "\\'") + '\',' + (d.percentage != null ? d.percentage : 'null') + ',\'' + ((d.description || '').replace(/'/g, "\\'")) + '\')"><i class="bi bi-pencil"></i></button>';
+        html += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarDesc(' + d.id + ')"><i class="bi bi-trash"></i></button></div></div>';
+      });
+      document.getElementById('lista-desc-content').innerHTML = html;
+    })
+    .catch(e => {
+      document.getElementById('lista-desc-loading').style.display = 'none';
+      showMsg(msg, 'Error: ' + e.message, 'error');
+    });
+}
+
+function guardarDescuento(e) {
+  e.preventDefault();
+  const nombre = document.getElementById('desc-nombre').value.trim();
+  if (!nombre) return;
+  const pct = document.getElementById('desc-porcentaje').value;
+  const porcentaje = pct !== '' ? parseFloat(pct) : null;
+  const descripcion = document.getElementById('desc-descripcion').value.trim() || null;
+  if (editingId) {
+    fetch('/api/discount-reasons/' + editingId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nombre, percentage: porcentaje, description: descripcion }), credentials: 'same-origin' })
+      .then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); }); return r.json(); })
+      .then(function() { showMsg(msg, 'Actualizado.', 'success'); loadDescuentos(); limpiarFormDesc(); editingId = null; })
+      .catch(function(err) { showMsg(msg, err.message, 'error'); });
+  } else {
+    apiPost('/api/discount-reasons', { name: nombre, percentage: porcentaje, description: descripcion })
+      .then(() => { showMsg(msg, 'Motivo creado.', 'success'); loadDescuentos(); document.getElementById('form-descuento').reset(); })
+      .catch(err => showMsg(msg, err.message, 'error'));
+  }
+}
+
+function editarDesc(id, name, pct, desc) {
+  editingId = id;
+  document.getElementById('desc-nombre').value = name || '';
+  document.getElementById('desc-porcentaje').value = pct != null ? pct : '';
+  document.getElementById('desc-descripcion').value = desc || '';
+  document.getElementById('form-descuento').querySelector('button[type="submit"]').innerHTML = '<i class="bi bi-check me-1"></i>Guardar';
+}
+
+function limpiarFormDesc() {
+  editingId = null;
+  document.getElementById('form-descuento').reset();
+  document.getElementById('form-descuento').querySelector('button[type="submit"]').innerHTML = '<i class="bi bi-plus-lg me-1"></i>+ Nuevo motivo descuento';
+}
+
+function eliminarDesc(id) {
+  if (!confirm('¿Desactivar este motivo?')) return;
+  apiDelete('/api/discount-reasons/' + id)
+    .then(() => { showMsg(msg, 'Motivo desactivado.', 'success'); loadDescuentos(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+loadTienda();
+loadDescuentos();
+</script>
+{% endblock %}

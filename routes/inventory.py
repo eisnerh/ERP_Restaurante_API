@@ -716,8 +716,14 @@ def import_from_excel():
         return jsonify({"error": error}), 400
 
     if replace:
-        from sqlalchemy import delete
-        db.session.execute(delete(item_suppliers))
+        from sqlalchemy import delete, update
+        from models import PurchaseOrderItem
+        item_ids = [r[0] for r in db.session.query(InventoryItem.id).filter_by(franchisee_id=fid).all()]
+        if item_ids:
+            db.session.execute(
+                update(PurchaseOrderItem).where(PurchaseOrderItem.inventory_item_id.in_(item_ids)).values(inventory_item_id=None)
+            )
+            db.session.execute(delete(item_suppliers).where(item_suppliers.c.inventory_item_id.in_(item_ids)))
         InventoryItem.query.filter_by(franchisee_id=fid).delete()
 
     created = 0

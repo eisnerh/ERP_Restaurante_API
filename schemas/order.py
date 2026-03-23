@@ -1,7 +1,15 @@
 """Esquemas de pedido."""
 from extensions import ma
 from marshmallow import fields
-from models import Order, OrderItem, Dish
+from models import Order, OrderItem, Dish, Table
+
+
+class TableSchemaShort(ma.SQLAlchemySchema):
+    class Meta:
+        model = Table
+        load_instance = True
+    id = ma.auto_field()
+    number = ma.auto_field()
 
 
 class DishSchemaShort(ma.SQLAlchemySchema):
@@ -33,9 +41,14 @@ class OrderSchema(ma.SQLAlchemySchema):
 
     id = ma.auto_field()
     table_id = ma.auto_field()
+    table = fields.Nested(TableSchemaShort, exclude=())
     status = ma.auto_field()
     created_at = ma.auto_field()
+    updated_at = ma.auto_field()
     notes = ma.auto_field()
+    payment_type = ma.auto_field()
+    cash_register_id = ma.auto_field()
+    ticket_emitted_at = ma.auto_field()
     items = fields.Nested(OrderItemSchema, many=True)
 
 

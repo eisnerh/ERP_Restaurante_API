@@ -97,8 +97,13 @@ def main():
 
         if args.replace:
             print("2. Borrando inventario del franquiciado...")
+            from models import PurchaseOrderItem
+            from sqlalchemy import update
             item_ids = [i.id for i in InventoryItem.query.filter_by(franchisee_id=fid).all()]
             if item_ids:
+                db.session.execute(
+                    update(PurchaseOrderItem).where(PurchaseOrderItem.inventory_item_id.in_(item_ids)).values(inventory_item_id=None)
+                )
                 db.session.execute(delete(item_suppliers).where(item_suppliers.c.inventory_item_id.in_(item_ids)))
             InventoryItem.query.filter_by(franchisee_id=fid).delete()
             db.session.flush()

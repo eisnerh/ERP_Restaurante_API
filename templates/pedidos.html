@@ -44,12 +44,27 @@
         <input type="hidden" id="status-order-id" value="">
         <div class="mb-3">
           <label class="form-label">Estado</label>
-          <select id="order-status-select" class="form-select">
+          <select id="order-status-select" class="form-select" onchange="togglePaidFields(this.value)">
             <option value="pending">Pendiente</option>
             <option value="preparing">En preparación</option>
             <option value="served">Servido</option>
             <option value="paid">Pagado</option>
           </select>
+        </div>
+        <div id="paid-fields" style="display:none;">
+          <div class="mb-3">
+            <label class="form-label">Medio de pago</label>
+            <select id="order-payment-type" class="form-select">
+              <option value="efectivo">Efectivo</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Caja (opcional)</label>
+            <select id="order-cash-register-id" class="form-select">
+              <option value="">-- Sin asignar --</option>
+            </select>
+            <small class="text-muted">Si la caja está abierta, asocia el cobro a la sesión.</small>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -132,25 +147,59 @@ function loadPedidos() {
       const list = data || [];
       let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Mesa</th><th>Estado</th><th>Notas</th><th class="text-end">Acciones</th></tr></thead><tbody>';
       list.forEach(o => {
-        html += '<tr><td>' + o.id + '</td><td>' + (o.table_id || '-') + '</td><td>' + (o.status || '-') + '</td><td>' + (o.notes || '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="openStatusModal(' + o.id + ',\'' + (o.status || '') + '\')">Estado</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delOrder(' + o.id + ')">Eliminar</button></td></tr>';
+        var emitido = o.ticket_emitted_at != null;
+        var btnTiquete = emitido
+          ? '<a href="/pedidos/' + o.id + '/tiquete" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Reimprimir tiquete"><i class="bi bi-printer"></i> Reimprimir</a>'
+          : '<a href="/pedidos/' + o.id + '/tiquete" target="_blank" class="btn btn-sm btn-outline-primary me-1" title="Emitir tiquete"><i class="bi bi-printer"></i> Emitir tiquete</a>';
+        html += '<tr><td>' + o.id + '</td><td>' + (o.table ? 'Mesa ' + (o.table.number || o.table_id) : 'Mesa ' + (o.table_id || '-')) + '</td><td>' + (o.status || '-') + '</td><td>' + (o.notes || '-') + '</td><td class="text-end">' + btnTiquete + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openStatusModal(' + o.id + ',\'' + (o.status || '') + '\')">Estado</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delOrder(' + o.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('pedidos-content').innerHTML = html || '<p>No hay pedidos.</p>';
     })
     .catch(e => { document.getElementById('pedidos-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
 }
+function togglePaidFields(status) {
+  const el = document.getElementById('paid-fields');
+  el.style.display = status === 'paid' ? 'block' : 'none';
+  if (status === 'paid') loadCashRegisterOptions();
+}
+function loadCashRegisterOptions() {
+  apiGet('/api/payment-methods').then(data => {
+    const sel = document.getElementById('order-payment-type');
+    sel.innerHTML = '';
+    (data || []).forEach(p => {
+      const code = p.code || (p.name || '').toLowerCase().replace(/\s+/g, '_') || 'efectivo';
+      sel.innerHTML += '<option value="' + code + '">' + (p.name || '') + '</option>';
+    });
+    if (sel.options.length === 0) sel.innerHTML = '<option value="efectivo">Efectivo</option>';
+  }).catch(() => {});
+  apiGet('/api/cash-register/current').then(data => {
+    const sel = document.getElementById('order-cash-register-id');
+    sel.innerHTML = '<option value="">-- Sin asignar --</option>';
+    if (data.open && data.session) {
+      sel.innerHTML += '<option value="' + data.session.id + '">Caja #' + data.session.id + ' (abierta)</option>';
+    }
+  }).catch(() => {});
+}
 function openStatusModal(id, status) {
   document.getElementById('status-order-id').value = id;
   document.getElementById('order-status-select').value = status || 'pending';
+  togglePaidFields(status || 'pending');
   modalShow('modal-order-status');
 }
 function saveOrderStatus() {
   const id = document.getElementById('status-order-id').value;
   const status = document.getElementById('order-status-select').value;
+  const payload = { status: status };
+  if (status === 'paid') {
+    payload.payment_type = document.getElementById('order-payment-type').value;
+    const crid = document.getElementById('order-cash-register-id').value;
+    if (crid) payload.cash_register_id = parseInt(crid, 10);
+  }
   fetch('/api/orders/' + id + '/status', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: status }),
+    body: JSON.stringify(payload),
   }).then(r => {
     if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); });
     return r.json();

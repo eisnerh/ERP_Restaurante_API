@@ -35,12 +35,13 @@ def _next_order_number(franchisee_id):
 
 @purchases_bp.route("", methods=["GET"])
 def list_orders():
-    """Lista órdenes de compra del franquiciado. Query: ?supplier_id=, ?status=, ?q=."""
+    """Lista órdenes de compra del franquiciado. Query: ?supplier_id=, ?status=, ?q=, ?limit=."""
     fid = get_or_default_franchisee_id()
     if not fid:
         return jsonify([])
     supplier_id = request.args.get("supplier_id", type=int)
     status = request.args.get("status")
+    limit = request.args.get("limit", type=int)
     q = (request.args.get("q") or "").strip()
     query = PurchaseOrder.query.filter_by(franchisee_id=fid).order_by(PurchaseOrder.order_date.desc())
     if supplier_id:
@@ -49,6 +50,8 @@ def list_orders():
         query = query.filter_by(status=status)
     if q:
         query = query.join(Supplier).filter(Supplier.name.ilike(f"%{q}%"))
+    if limit and limit > 0:
+        query = query.limit(min(limit, 500))
     orders = query.all()
     return jsonify(orders_schema.dump(orders))
 

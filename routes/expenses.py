@@ -1,8 +1,8 @@
-"""API de control de gastos: compras (inventario) y planilla por período."""
+"""API de control de gastos: compras (inventario), planilla y caja chica por período."""
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 
-from models import PurchaseOrder, Payslip
+from models import PurchaseOrder, Payslip, OperationalExpense
 from utils.franchisee import get_or_default_franchisee_id
 
 expenses_bp = Blueprint("expenses", __name__, url_prefix="/api/expenses")
@@ -29,11 +29,13 @@ def expenses_summary():
         return jsonify({
             "purchases_total": 0,
             "payroll_total": 0,
+            "operational_total": 0,
             "total": 0,
             "period_from": None,
             "period_to": None,
             "purchases_count": 0,
             "payroll_count": 0,
+            "operational_count": 0,
         })
 
     date_from = _parse_date(request.args.get("from"))
@@ -65,14 +67,24 @@ def expenses_summary():
     payslips = payroll_query.all()
     payroll_total = sum(p.total_depositado or 0 for p in payslips)
 
+    # Gastos de caja chica (operational expenses): created_at en el rango
+    operational_query = OperationalExpense.query.filter_by(franchisee_id=fid).filter(
+        OperationalExpense.created_at >= datetime.combine(date_from, datetime.min.time()),
+        OperationalExpense.created_at < datetime.combine(date_to, datetime.min.time()) + timedelta(days=1),
+    )
+    operational = operational_query.all()
+    operational_total = sum(float(e.amount or 0) for e in operational)
+
     return jsonify({
         "purchases_total": round(purchases_total, 2),
         "payroll_total": round(payroll_total, 2),
-        "total": round(purchases_total + payroll_total, 2),
+        "operational_total": round(operational_total, 2),
+        "total": round(purchases_total + payroll_total + operational_total, 2),
         "period_from": date_from.isoformat(),
         "period_to": date_to.isoformat(),
         "purchases_count": len(purchases),
         "payroll_count": len(payslips),
+        "operational_count": len(operational),
     })
 
 

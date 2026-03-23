@@ -9,6 +9,12 @@ from routes.settings import settings_bp
 from routes.franchisees import franchisees_bp
 from routes.expenses import expenses_bp
 from routes.holidays import holidays_bp
+from routes.cash_register import cash_register_bp
+from routes.invoices import invoices_bp
+from routes.reports import reports_bp
+from routes.operational_expenses import operational_expenses_bp
+from routes.payment_methods import payment_methods_bp
+from routes.discount_reasons import discount_reasons_bp
 
 
 def create_app(config_class=Config):
@@ -37,6 +43,12 @@ def create_app(config_class=Config):
     app.register_blueprint(franchisees_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(holidays_bp)
+    app.register_blueprint(cash_register_bp)
+    app.register_blueprint(invoices_bp)
+    app.register_blueprint(reports_bp)
+    app.register_blueprint(operational_expenses_bp)
+    app.register_blueprint(payment_methods_bp)
+    app.register_blueprint(discount_reasons_bp)
 
     @app.before_request
     def ensure_default_franchisee():
@@ -113,12 +125,20 @@ def create_app(config_class=Config):
                 "payroll_locations": "/api/payroll/locations",
                 "payroll_entries": "/api/payroll/entries",
                 "payroll_payslips": "/api/payroll/payslips",
+                "cash_register": "/api/cash-register",
+                "invoices": "/api/invoices",
+                "reports": "/api/reports",
+                "operational_expenses": "/api/operational-expenses",
             },
         })
 
     @app.errorhandler(Exception)
     def handle_exception(err):
         """En rutas /api/ devuelve JSON con el error para facilitar depuración."""
+        from werkzeug.exceptions import HTTPException
+        # Dejar que las excepciones HTTP (404, 403, etc.) devuelvan su código correcto
+        if isinstance(err, HTTPException):
+            return err.get_response()
         import traceback
         tb = traceback.format_exc()
         app.logger.exception("Error 500: %s", err)
@@ -167,6 +187,24 @@ def create_app(config_class=Config):
                         name=name, description=desc,
                         can_be_negative=can_neg, is_hours_based=is_hrs, display_order=order
                     ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        # Medios de pago por defecto si un franquiciado no tiene ninguno
+        try:
+            from models import PaymentMethod
+            for f in Franchisee.query.filter_by(active=True).all():
+                if PaymentMethod.query.filter_by(franchisee_id=f.id).count() == 0:
+                    for order, (name, code) in enumerate([
+                        ("Efectivo", "efectivo"),
+                        ("Pendiente", "pendiente"),
+                        ("SINPE Movil", "sinpe"),
+                        ("Tarjeta crédito", "tarjeta_credito"),
+                        ("Tarjeta débito", "tarjeta_debito"),
+                    ]):
+                        db.session.add(PaymentMethod(
+                            franchisee_id=f.id, name=name, code=code, display_order=order
+                        ))
             db.session.commit()
         except Exception:
             db.session.rollback()

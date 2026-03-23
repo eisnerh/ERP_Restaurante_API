@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Medios de pago{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h1 class="h4 mb-3 text-uppercase" style="color: var(--rc-primary);">MEDIO DE PAGO</h1>
+  </div>
+</div>
+<div id="msg" class="msg alert" style="display:none;" role="alert"></div>
+
+<div class="row">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <form id="form-pago" onsubmit="guardarPago(event)">
+          <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <div class="input-group">
+              <input type="text" id="pago-nombre" class="form-control" placeholder="Ej: Efectivo, SINPE Movil" required>
+              <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormPago()" title="Limpiar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tienda</label>
+            <div class="input-group">
+              <input type="text" id="pago-tienda" class="form-control" readonly>
+              <button type="button" class="btn btn-outline-secondary" title="Tienda actual (cambia en el menú)">
+                <i class="bi bi-shop"></i>
+              </button>
+            </div>
+            <small class="text-muted">Cambia la casa en el menú superior.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Código <small class="text-muted">(opcional)</small></label>
+            <input type="text" id="pago-codigo" class="form-control" placeholder="efectivo, sinpe, tarjeta_credito">
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>Nuevo medio de pago</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-3 text-muted">Medios configurados</h6>
+        <div id="lista-pagos" class="list-group list-group-flush">
+          <div id="lista-pagos-loading" class="text-muted py-4 text-center">Cargando...</div>
+          <div id="lista-pagos-content" style="display:none;"></div>
+        </div>
+        <p class="small text-muted mt-2 mb-0" id="lista-pagos-empty" style="display:none;">No hay medios de pago. Agrega uno en el formulario.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const msg = document.getElementById('msg');
+let editingId = null;
+
+function loadTienda() {
+  const fid = {{ current_franchisee_id or 'null' }};
+  const name = "{{ current_franchisee.name if current_franchisee else 'Selecciona casa' }}";
+  document.getElementById('pago-tienda').value = name || 'Selecciona una casa';
+}
+
+function loadPagos() {
+  document.getElementById('lista-pagos-loading').style.display = 'block';
+  document.getElementById('lista-pagos-content').style.display = 'none';
+  document.getElementById('lista-pagos-empty').style.display = 'none';
+  apiGet('/api/payment-methods?all=1')
+    .then(data => {
+      document.getElementById('lista-pagos-loading').style.display = 'none';
+      document.getElementById('lista-pagos-content').style.display = 'block';
+      if (!data || data.length === 0) {
+        document.getElementById('lista-pagos-content').innerHTML = '';
+        document.getElementById('lista-pagos-empty').style.display = 'block';
+        return;
+      }
+      let html = '';
+      data.forEach(p => {
+        const badge = p.active ? '' : ' <span class="badge bg-secondary">Inactivo</span>';
+        html += '<div class="list-group-item d-flex justify-content-between align-items-center">';
+        html += '<span>' + (p.name || '') + (p.code ? ' <small class="text-muted">(' + p.code + ')</small>' : '') + badge + '</span>';
+        html += '<div><button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="editarPago(' + p.id + ',\'' + (p.name || '').replace(/'/g, "\\'") + '\',\'' + (p.code || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-pencil"></i></button>';
+        html += '<button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarPago(' + p.id + ')"><i class="bi bi-trash"></i></button></div></div>';
+      });
+      document.getElementById('lista-pagos-content').innerHTML = html;
+    })
+    .catch(e => {
+      document.getElementById('lista-pagos-loading').style.display = 'none';
+      showMsg(msg, 'Error: ' + e.message, 'error');
+    });
+}
+
+function guardarPago(e) {
+  e.preventDefault();
+  const nombre = document.getElementById('pago-nombre').value.trim();
+  if (!nombre) return;
+  const codigo = document.getElementById('pago-codigo').value.trim() || null;
+  if (editingId) {
+    fetch('/api/payment-methods/' + editingId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nombre, code: codigo }), credentials: 'same-origin' })
+      .then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); }); return r.json(); })
+      .then(function() { showMsg(msg, 'Actualizado.', 'success'); loadPagos(); limpiarFormPago(); editingId = null; })
+      .catch(function(err) { showMsg(msg, err.message, 'error'); });
+  } else {
+    apiPost('/api/payment-methods', { name: nombre, code: codigo })
+      .then(() => { showMsg(msg, 'Medio de pago creado.', 'success'); loadPagos(); document.getElementById('form-pago').reset(); })
+      .catch(err => showMsg(msg, err.message, 'error'));
+  }
+}
+
+function editarPago(id, name, code) {
+  editingId = id;
+  document.getElementById('pago-nombre').value = name || '';
+  document.getElementById('pago-codigo').value = code || '';
+  document.getElementById('form-pago').querySelector('button[type="submit"]').innerHTML = '<i class="bi bi-check me-1"></i>Guardar';
+}
+
+function limpiarFormPago() {
+  editingId = null;
+  document.getElementById('form-pago').reset();
+  document.getElementById('form-pago').querySelector('button[type="submit"]').innerHTML = '<i class="bi bi-plus-lg me-1"></i>Nuevo medio de pago';
+}
+
+function eliminarPago(id) {
+  if (!confirm('¿Desactivar este medio de pago?')) return;
+  apiDelete('/api/payment-methods/' + id)
+    .then(() => { showMsg(msg, 'Medio de pago desactivado.', 'success'); loadPagos(); })
+    .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+loadTienda();
+loadPagos();
+</script>
+{% endblock %}

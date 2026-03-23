@@ -80,7 +80,8 @@ def create_order():
 
 @orders_bp.route("/<int:order_id>/status", methods=["PATCH"])
 def update_order_status(order_id):
-    """Actualiza el estado: pending, preparing, served, paid."""
+    """Actualiza el estado: pending, preparing, served, paid. Si paid: payment_type, cash_register_id opcionales."""
+    from models import CashRegisterSession
     fid = get_or_default_franchisee_id()
     order = Order.query.join(Table).filter(Order.id == order_id, Table.franchisee_id == fid).first_or_404()
     data = request.get_json() or {}
@@ -90,6 +91,14 @@ def update_order_status(order_id):
     order.status = status
     if status == "paid":
         order.table.occupied = False
+        payment_type = data.get("payment_type")
+        if payment_type:
+            order.payment_type = payment_type
+        cash_register_id = data.get("cash_register_id")
+        if cash_register_id is not None:
+            session = CashRegisterSession.query.filter_by(id=cash_register_id, franchisee_id=fid).first()
+            if session and not session.closed_at:
+                order.cash_register_id = cash_register_id
     db.session.commit()
     return jsonify(order_schema.dump(order))
 
