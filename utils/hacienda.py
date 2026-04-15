@@ -1,11 +1,21 @@
 """
 Servicio de facturación electrónica - Integración Hacienda Costa Rica.
 Modo simulación: genera documentos sin enviar a Hacienda.
+
+Llave .p12: ver utils.hacienda_crypto (resolve_hacienda_p12_path, HACIENDA_P12_PATH).
 """
 from decimal import Decimal
 from typing import List, Dict, Any
 from datetime import datetime
 import os
+
+# Re-export para quien importe desde hacienda
+from utils.hacienda_crypto import (  # noqa: F401
+    resolve_hacienda_p12_path,
+    list_p12_files,
+    get_p12_password,
+    get_llave_directory,
+)
 
 
 def is_hacienda_simulation() -> bool:

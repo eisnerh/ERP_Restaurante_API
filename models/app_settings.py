@@ -12,6 +12,8 @@ class AppSettings(db.Model):
     logo_url = db.Column(db.String(500))
     favicon_url = db.Column(db.String(500))
     nav_icon = db.Column(db.String(50))
+    # Facturación Hacienda: nombre del .p12 dentro de data/Llave (null = usar el primero encontrado)
+    hacienda_p12_filename = db.Column(db.String(255), nullable=True)
 
     franchisee = db.relationship("Franchisee", backref="app_settings")
 

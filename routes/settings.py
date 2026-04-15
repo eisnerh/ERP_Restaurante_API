@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from extensions import db
 from models import AppSettings
 from utils.franchisee import get_or_default_franchisee_id
+from utils.hacienda_crypto import list_p12_files, resolve_hacienda_p12_path
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/api/settings")
 
@@ -46,17 +47,32 @@ def upload_image():
     return jsonify({"url": url})
 
 
+def _crypto_settings_payload(fid):
+    s = AppSettings.get(franchisee_id=fid)
+    fname = getattr(s, "hacienda_p12_filename", None)
+    resolved = resolve_hacienda_p12_path(franchisee_id=fid)
+    return {
+        "hacienda_p12_filename": fname or "",
+        "hacienda_p12_resolved": str(resolved) if resolved else "",
+        "hacienda_p12_available": list_p12_files(),
+        "hacienda_p12_env_override": bool(os.environ.get("HACIENDA_P12_PATH", "").strip()),
+        "hacienda_p12_password_configured": bool(os.environ.get("HACIENDA_P12_PASSWORD", "").strip()),
+    }
+
+
 @settings_bp.route("", methods=["GET"])
 def get_settings():
     """Obtiene la configuración actual (del franquiciado seleccionado)."""
     fid = get_or_default_franchisee_id()
     s = AppSettings.get(franchisee_id=fid)
-    return jsonify({
+    out = {
         "app_name": s.app_name or "ERP Raul Castaño",
         "logo_url": s.logo_url or "",
         "favicon_url": s.favicon_url or "",
         "nav_icon": s.nav_icon or "",
-    })
+    }
+    out.update(_crypto_settings_payload(fid))
+    return jsonify(out)
 
 
 @settings_bp.route("", methods=["PUT"])
@@ -73,13 +89,24 @@ def update_settings():
         s.favicon_url = (data.get("favicon_url") or "").strip() or None
     if "nav_icon" in data:
         s.nav_icon = (data.get("nav_icon") or "").strip() or None
+    if "hacienda_p12_filename" in data and hasattr(s, "hacienda_p12_filename"):
+        raw = (data.get("hacienda_p12_filename") or "").strip()
+        if not raw:
+            s.hacienda_p12_filename = None
+        else:
+            available = list_p12_files()
+            if raw not in available:
+                return jsonify({"error": f"El archivo .p12 no está en data/Llave: {raw}"}), 400
+            s.hacienda_p12_filename = raw
     db.session.commit()
-    return jsonify({
+    out = {
         "app_name": s.app_name,
         "logo_url": s.logo_url or "",
         "favicon_url": s.favicon_url or "",
         "nav_icon": s.nav_icon or "",
-    })
+    }
+    out.update(_crypto_settings_payload(fid))
+    return jsonify(out)
 
 
 @settings_bp.route("/import-excel", methods=["POST"])

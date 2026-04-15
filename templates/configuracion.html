@@ -65,6 +65,25 @@
 </div>
 <div class="card mt-4">
   <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-key me-2"></i>Llave criptográfica (Hacienda)</h5>
+    <p class="text-muted small mb-3">Archivos <code>.p12</code> en la carpeta <code>data/Llave</code>. Puedes cambiar cuál se usa sin tocar el código. La contraseña del certificado va en <code>.env</code>: <code>HACIENDA_P12_PASSWORD</code>. Opcional: <code>HACIENDA_P12_PATH</code> con ruta absoluta (tiene prioridad sobre esta selección).</p>
+    <div id="crypto-env-hint" class="alert alert-light small py-2 mb-3" style="display:none;"></div>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label">Certificado activo (.p12)</label>
+        <select id="hacienda-p12-select" class="form-select">
+          <option value="">— Automático (primer .p12 en la carpeta) —</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <button type="button" class="btn btn-primary" onclick="saveCryptoSettings()"><i class="bi bi-save me-1"></i>Guardar llave</button>
+      </div>
+    </div>
+    <p class="small text-muted mt-3 mb-0" id="hacienda-p12-resolved"></p>
+  </div>
+</div>
+<div class="card mt-4">
+  <div class="card-body">
     <h5 class="card-title mb-3"><i class="bi bi-file-earmark-excel me-2"></i>Plantillas Excel</h5>
     <p class="text-muted small mb-3">Descarga archivos Excel con el formato correcto para importar inventario, planilla, casas, menú, clientes y más. Consulta FORMATOS_EXCEL.md en la documentación.</p>
     <div class="d-flex flex-wrap gap-2 mb-4">
@@ -181,6 +200,45 @@ function uploadImage(fileInputId, urlInputId, previewFn) {
     .finally(() => { fileInput.value = ''; });
 }
 
+function fillCryptoUi(s) {
+  var sel = document.getElementById('hacienda-p12-select');
+  var hint = document.getElementById('crypto-env-hint');
+  var resolved = document.getElementById('hacienda-p12-resolved');
+  if (!sel) return;
+  var avail = s.hacienda_p12_available || [];
+  var current = s.hacienda_p12_filename || '';
+  sel.innerHTML = '<option value="">— Automático (primer .p12 en la carpeta) —</option>';
+  avail.forEach(function(name) {
+    var opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (current && avail.indexOf(current) < 0) {
+    var o = document.createElement('option');
+    o.value = current;
+    o.textContent = current + ' (no encontrado en carpeta)';
+    o.selected = true;
+    sel.appendChild(o);
+  }
+  if (!current && avail.length) sel.value = '';
+  hint.style.display = 'block';
+  var parts = [];
+  if (s.hacienda_p12_env_override) {
+    parts.push('<strong>HACIENDA_P12_PATH</strong> está definida; se usa esa ruta y se ignora la selección de abajo.');
+  }
+  if (s.hacienda_p12_password_configured) {
+    parts.push('Contraseña del .p12: configurada en entorno (HACIENDA_P12_PASSWORD).');
+  } else {
+    parts.push('Contraseña del .p12: <span class="text-warning">no configurada en .env</span> (requerida para firmar con Hacienda).');
+  }
+  hint.innerHTML = parts.join(' ');
+  resolved.textContent = s.hacienda_p12_resolved
+    ? 'Ruta resuelta: ' + s.hacienda_p12_resolved
+    : 'No hay ningún .p12 disponible en data/Llave.';
+}
+
 function loadSettings() {
   fetch(API_SETTINGS)
     .then(r => r.json())
@@ -191,8 +249,27 @@ function loadSettings() {
       document.getElementById('favicon-url').value = s.favicon_url || '';
       updateLogoPreview(s.logo_url || '');
       updateFaviconPreview(s.favicon_url || '');
+      fillCryptoUi(s);
     })
     .catch(e => { showMsg('Error: ' + e.message, true); });
+}
+
+function saveCryptoSettings() {
+  var sel = document.getElementById('hacienda-p12-select');
+  var v = sel ? sel.value : '';
+  fetch(API_SETTINGS, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hacienda_p12_filename: v })
+  })
+  .then(r => r.json().then(function(j) { return [r.ok, j]; }))
+  .then(function(arr) {
+    var ok = arr[0], j = arr[1];
+    if (!ok) throw new Error(j.error || 'Error');
+    fillCryptoUi(j);
+    showMsg('Llave criptográfica actualizada.', false);
+  })
+  .catch(function(e) { showMsg('Error: ' + (e.message || e), true); });
 }
 
 function saveSettings(e) {

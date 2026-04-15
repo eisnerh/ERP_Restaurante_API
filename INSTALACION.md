@@ -178,6 +178,7 @@ Para que la aplicación se inicie automáticamente cuando el cliente encienda el
 | Columna hrs_negativas en planilla | `python scripts/migrate_hrs_negativas.py` |
 | Caja, facturas y gastos operacionales | `python scripts/migrate_caja_facturas.py` |
 | Arqueo Z (desglose cierre caja) | `python scripts/migrate_arqueo_z.py` |
+| Llave .p12 Hacienda en configuración | `python scripts/migrate_app_settings_hacienda_p12.py` |
 | Datos de menú (opcional) | `python seed.py` |
 
 ---
