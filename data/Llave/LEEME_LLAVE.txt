@@ -1,0 +1,19 @@
+Carpeta para la llave criptográfica (certificado .p12 de Hacienda CR)
+====================================================================
+
+• Los archivos .p12 NO deben subirse al repositorio (están en .gitignore).
+• Copia aquí tu certificado real solo en cada servidor o PC de trabajo.
+• La contraseña del .p12 va en el archivo .env como HACIENDA_P12_PASSWORD (tampoco subas .env).
+
+Certificado de PRUEBA local (autofirmado, no válido ante Hacienda):
+  Desde la raíz del proyecto:
+    python scripts/generar_p12_prueba.py
+
+  Genera data/Llave/prueba-local.p12 con contraseña por defecto "prueba-local".
+  Añade en .env:
+    HACIENDA_P12_PASSWORD=prueba-local
+
+Opcional: ruta fija sin usar esta carpeta
+  HACIENDA_P12_PATH=C:\ruta\completa\archivo.p12
+
+En la aplicación: Configuración → elige el .p12 activo o deja "Automático".

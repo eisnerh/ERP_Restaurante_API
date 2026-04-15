@@ -40,6 +40,13 @@ wheels/
 *.key
 certs/
 
+# Llaves Hacienda (.p12) y documentos sensibles — no subir a GitHub
+data/Llave/*.p12
+data/Llave/*.pfx
+data/Llave/*.pem
+data/Llave/*.key
+data/Llave/*.docx
+
 # IDE / Editor
 .idea/
 .vscode/
