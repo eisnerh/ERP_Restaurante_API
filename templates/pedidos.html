@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Pedidos{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Pedidos</h1>
+<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+  <h1 class="h4 mb-0">Pedidos</h1>
+  <span class="small text-muted" title="Atajos: Ctrl+K o / enfoca la búsqueda de platos (modo Buscar)."><i class="bi bi-keyboard me-1"></i>Ctrl+K / <kbd class="kbd-hint">/</kbd> buscar plato</span>
+</div>
 <div id="msg" class="msg alert" style="display:none;" role="alert"></div>
 <div class="card mb-3">
   <div class="card-body">
@@ -16,15 +19,47 @@
         <input type="text" id="order-notes" class="form-control" placeholder="Opcional">
       </div>
       <div class="mb-3">
-        <label class="form-label">Platos (plato + cantidad, luego agregar)</label>
-        <div class="d-flex flex-wrap gap-2 align-items-center mt-1">
-          <select id="order-dish-id" class="form-select" style="max-width:220px;"></select>
-          <input type="number" id="order-qty" class="form-control" min="1" value="1" style="max-width:80px">
-          <button type="button" class="btn btn-outline-secondary" onclick="addOrderItem()">Agregar</button>
+        <label class="form-label">Platos</label>
+        <div class="btn-group mb-2" role="group" aria-label="Cómo elegir platos">
+          <input type="radio" class="btn-check" name="order-dish-mode" id="odm-cat" checked autocomplete="off">
+          <label class="btn btn-outline-secondary btn-sm" for="odm-cat">Por categoría</label>
+          <input type="radio" class="btn-check" name="order-dish-mode" id="odm-search" autocomplete="off">
+          <label class="btn btn-outline-secondary btn-sm" for="odm-search">Buscar</label>
+        </div>
+        <div id="order-panel-cat">
+          <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div class="flex-grow-1" style="min-width: 160px;">
+              <label class="form-label small text-muted mb-0" for="order-category-id">Categoría</label>
+              <select id="order-category-id" class="form-select" onchange="onOrderCategoryChange()"></select>
+            </div>
+            <div class="flex-grow-1" style="min-width: 200px;">
+              <label class="form-label small text-muted mb-0" for="order-dish-id">Plato</label>
+              <select id="order-dish-id" class="form-select"></select>
+            </div>
+            <button type="button" class="btn btn-outline-secondary mb-1 btn-touch" onclick="addOrderItem()">Agregar</button>
+          </div>
+        </div>
+        <div id="order-panel-search" style="display: none;">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small text-muted mb-0" for="order-search-category-filter">Categoría (opcional)</label>
+              <select id="order-search-category-filter" class="form-select form-select-sm" onchange="renderOrderDishSearchResults()"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small text-muted mb-0" for="order-dish-search">Buscar por nombre</label>
+              <input type="search" id="order-dish-search" class="form-control form-control-sm" placeholder="Nombre o descripción…" autocomplete="off">
+            </div>
+          </div>
+          <div id="order-dish-results" class="list-group list-group-flush border rounded small" style="max-height: 260px; overflow-y: auto;"></div>
+          <p class="small text-muted mb-0 mt-1">Escriba para filtrar, o solo elija categoría para ver todos esos platos. Pulse una fila para agregar con la cantidad de abajo.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+          <label class="form-label small mb-0" for="order-qty">Cantidad</label>
+          <input type="number" id="order-qty" class="form-control btn-touch-input" min="1" value="1" style="max-width: 88px">
         </div>
         <ul id="order-items-list" class="list-unstyled mt-2 mb-0"></ul>
       </div>
-      <button type="submit" class="btn btn-primary">Crear pedido</button>
+      <button type="submit" class="btn btn-primary btn-touch">Crear pedido</button>
     </form>
   </div>
 </div>
@@ -80,6 +115,7 @@ const msg = document.getElementById('msg');
 let orderItems = [];
 let tables = [];
 let dishes = [];
+let categories = [];
 
 function loadTables() {
   return apiGet('/api/tables').then(data => {
@@ -92,14 +128,98 @@ function loadTables() {
     if (tables.length && !sel.value) sel.innerHTML += '<option value="' + tables[0].id + '">Mesa ' + (tables[0].number || tables[0].id) + '</option>';
   });
 }
-function loadDishes() {
-  return apiGet('/api/menu/dishes').then(data => {
-    dishes = (data || []).filter(d => d.available !== false);
-    const sel = document.getElementById('order-dish-id');
-    sel.innerHTML = '<option value="">-- Plato --</option>';
-    dishes.forEach(d => {
-      sel.innerHTML += '<option value="' + d.id + '">' + (d.name || '') + ' (₡' + (d.price != null ? Number(d.price).toLocaleString() : '') + ')</option>';
+function orderDishModeSearch() {
+  return document.getElementById('odm-search').checked;
+}
+
+function syncOrderDishPanels() {
+  const search = orderDishModeSearch();
+  document.getElementById('order-panel-cat').style.display = search ? 'none' : '';
+  document.getElementById('order-panel-search').style.display = search ? '' : 'none';
+  if (search) renderOrderDishSearchResults();
+  else onOrderCategoryChange();
+}
+
+function fillOrderCategories() {
+  const sel = document.getElementById('order-category-id');
+  sel.innerHTML = '<option value="">-- Categoría --</option>';
+  categories.forEach(c => {
+    sel.innerHTML += '<option value="' + c.id + '">' + categoryOptionLabel(c) + '</option>';
+  });
+  const sc = document.getElementById('order-search-category-filter');
+  if (sc) {
+    sc.innerHTML = '<option value="">Todas las categorías</option>';
+    categories.forEach(c => {
+      sc.innerHTML += '<option value="' + c.id + '">' + categoryOptionLabel(c) + '</option>';
     });
+  }
+}
+
+function onOrderCategoryChange() {
+  const cid = document.getElementById('order-category-id').value;
+  const sel = document.getElementById('order-dish-id');
+  sel.innerHTML = '<option value="">-- Plato --</option>';
+  const idNum = cid ? parseInt(cid, 10) : null;
+  dishes.filter(d => !idNum || d.category_id === idNum).forEach(d => {
+    sel.innerHTML += '<option value="' + d.id + '">' + (d.name || '') + ' (₡' + (d.price != null ? Number(d.price).toLocaleString() : '') + ')</option>';
+  });
+}
+
+function renderOrderDishSearchResults() {
+  const box = document.getElementById('order-dish-results');
+  const sc = document.getElementById('order-search-category-filter');
+  const cid = sc && sc.value ? sc.value : '';
+  let pool = dishes.slice();
+  if (cid) pool = pool.filter(d => d.category_id === parseInt(cid, 10));
+  const q = (document.getElementById('order-dish-search').value || '').trim().toLowerCase();
+  if (q) {
+    pool = pool.filter(d =>
+      (d.name || '').toLowerCase().includes(q) ||
+      (d.description || '').toLowerCase().includes(q)
+    );
+  }
+  if (!q && !cid) {
+    box.innerHTML = '<div class="list-group-item text-muted">Escriba para buscar o elija una categoría para listar esos platos.</div>';
+    return;
+  }
+  const matches = pool.slice(0, 80);
+  if (matches.length === 0) {
+    box.innerHTML = '<div class="list-group-item text-muted">Sin resultados. Pruebe otro texto o categoría.</div>';
+    return;
+  }
+  box.innerHTML = matches.map(d => {
+    const cat = categories.find(c => c.id === d.category_id);
+    const catLabel = cat ? (cat.name || '') : '';
+    const price = d.price != null ? '₡' + Number(d.price).toLocaleString() : '';
+    var catIcon = cat ? catIconHtml(cat) + ' ' : '';
+    return '<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start py-2 btn-touch" onclick="addOrderItemFromDishId(' + d.id + ')">' +
+      '<span><span class="fw-medium">' + (d.name || '') + '</span>' +
+      (catLabel ? ' <span class="text-muted text-nowrap">' + catIcon + '· ' + catLabel + '</span>' : '') + '</span>' +
+      '<span class="text-nowrap ms-2">' + price + '</span></button>';
+  }).join('');
+}
+
+function addOrderItemFromDishId(dishId) {
+  const qty = parseInt(document.getElementById('order-qty').value, 10) || 1;
+  const dish = dishes.find(d => d.id === dishId);
+  if (!dish) return;
+  orderItems.push({ dish_id: dishId, quantity: qty, name: dish.name || '' });
+  renderOrderItems();
+}
+
+function loadDishes() {
+  return Promise.all([
+    apiGet('/api/menu/categories'),
+    apiGet('/api/menu/dishes')
+  ]).then(([cats, data]) => {
+    categories = cats || [];
+    dishes = (data || []).filter(d => d.available !== false);
+    fillOrderCategories();
+    const catSel = document.getElementById('order-category-id');
+    if (categories.length && !catSel.value) {
+      catSel.selectedIndex = 1;
+    }
+    onOrderCategoryChange();
   });
 }
 function addOrderItem() {
@@ -116,7 +236,7 @@ function removeOrderItem(i) {
 }
 function renderOrderItems() {
   const ul = document.getElementById('order-items-list');
-  ul.innerHTML = orderItems.map((it, i) => '<li class="mb-1">' + it.name + ' x ' + it.quantity + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeOrderItem(' + i + ')">Quitar</button></li>').join('') || '';
+  ul.innerHTML = orderItems.map((it, i) => '<li class="mb-1 d-flex flex-wrap align-items-center gap-2">' + it.name + ' × ' + it.quantity + ' <button type="button" class="btn btn-sm btn-outline-secondary btn-touch" onclick="removeOrderItem(' + i + ')">Quitar</button></li>').join('') || '';
 }
 function createOrder(e) {
   e.preventDefault();
@@ -129,12 +249,21 @@ function createOrder(e) {
   apiPost('/api/orders', data)
     .then(() => {
       showMsg(msg, 'Pedido creado.', 'success');
+      if (typeof showToast === 'function') showToast('Pedido creado correctamente.', 'success');
       orderItems = [];
       renderOrderItems();
       loadPedidos();
       loadTables();
     })
     .catch(err => showMsg(msg, err.message, 'error'));
+}
+
+function orderStatusBadge(st) {
+  var labels = { pending: 'Pendiente', preparing: 'En preparación', served: 'Servido', paid: 'Pagado' };
+  var cls = { pending: 'warning', preparing: 'info', served: 'primary', paid: 'success' };
+  var text = labels[st] || (st || '—');
+  var c = cls[st] || 'secondary';
+  return '<span class="badge text-bg-' + c + '">' + text + '</span>';
 }
 
 function loadPedidos() {
@@ -151,7 +280,7 @@ function loadPedidos() {
         var btnTiquete = emitido
           ? '<a href="/pedidos/' + o.id + '/tiquete" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Reimprimir tiquete"><i class="bi bi-printer"></i> Reimprimir</a>'
           : '<a href="/pedidos/' + o.id + '/tiquete" target="_blank" class="btn btn-sm btn-outline-primary me-1" title="Emitir tiquete"><i class="bi bi-printer"></i> Emitir tiquete</a>';
-        html += '<tr><td>' + o.id + '</td><td>' + (o.table ? 'Mesa ' + (o.table.number || o.table_id) : 'Mesa ' + (o.table_id || '-')) + '</td><td>' + (o.status || '-') + '</td><td>' + (o.notes || '-') + '</td><td class="text-end">' + btnTiquete + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openStatusModal(' + o.id + ',\'' + (o.status || '') + '\')">Estado</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delOrder(' + o.id + ')">Eliminar</button></td></tr>';
+        html += '<tr><td>' + o.id + '</td><td>' + (o.table ? 'Mesa ' + (o.table.number || o.table_id) : 'Mesa ' + (o.table_id || '-')) + '</td><td>' + orderStatusBadge(o.status) + '</td><td>' + (o.notes || '-') + '</td><td class="text-end">' + btnTiquete + ' <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openStatusModal(' + o.id + ',\'' + (o.status || '') + '\')">Estado</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delOrder(' + o.id + ')">Eliminar</button></td></tr>';
       });
       html += '</tbody></table></div>';
       document.getElementById('pedidos-content').innerHTML = html || '<p>No hay pedidos.</p>';
@@ -203,7 +332,13 @@ function saveOrderStatus() {
   }).then(r => {
     if (!r.ok) return r.json().then(j => { throw new Error(j.error || r.statusText); });
     return r.json();
-  }).then(() => { modalHide('modal-order-status'); showMsg(msg, 'Estado actualizado.', 'success'); loadPedidos(); loadTables(); })
+  }).then(() => {
+    modalHide('modal-order-status');
+    showMsg(msg, 'Estado actualizado.', 'success');
+    if (typeof showToast === 'function') showToast('Estado del pedido actualizado.', 'success');
+    loadPedidos();
+    loadTables();
+  })
     .catch(err => showMsg(msg, err.message, 'error'));
 }
 function delOrder(id) {
@@ -213,6 +348,34 @@ function delOrder(id) {
     .catch(err => showMsg(msg, err.message, 'error'));
 }
 
-Promise.all([loadTables(), loadDishes()]).then(() => { loadPedidos(); });
+document.querySelectorAll('input[name="order-dish-mode"]').forEach(function (el) {
+  el.addEventListener('change', syncOrderDishPanels);
+});
+document.getElementById('order-dish-search').addEventListener('input', function () {
+  if (orderDishModeSearch()) renderOrderDishSearchResults();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    document.getElementById('odm-search').checked = true;
+    syncOrderDishPanels();
+    var inp = document.getElementById('order-dish-search');
+    if (inp) { inp.focus(); inp.select(); }
+    return;
+  }
+  if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    var tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    document.getElementById('odm-search').checked = true;
+    syncOrderDishPanels();
+    var inp2 = document.getElementById('order-dish-search');
+    if (inp2) { inp2.focus(); inp2.select(); }
+  }
+});
+Promise.all([loadTables(), loadDishes()]).then(function () {
+  syncOrderDishPanels();
+  loadPedidos();
+});
 </script>
 {% endblock %}

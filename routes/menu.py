@@ -4,6 +4,7 @@ from extensions import db
 from models import Category, Dish
 from schemas import CategorySchema, CategorySchemaNested, DishSchema
 from utils.franchisee import get_or_default_franchisee_id
+from utils.category_icon import suggest_icon_for_category_name
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/api/menu")
 
@@ -47,6 +48,8 @@ def create_category():
     data = request.get_json() or {}
     data["franchisee_id"] = fid
     category = category_schema.load(data, session=db.session)
+    if not category.icon:
+        category.icon = suggest_icon_for_category_name(category.name)
     db.session.add(category)
     db.session.commit()
     return jsonify(category_schema.dump(category)), 201
@@ -59,6 +62,8 @@ def update_category(category_id):
     category = Category.query.filter_by(id=category_id, franchisee_id=fid).first_or_404()
     data = request.get_json() or {}
     category_schema.load(data, instance=category, session=db.session, partial=True)
+    if not category.icon:
+        category.icon = suggest_icon_for_category_name(category.name)
     db.session.commit()
     return jsonify(category_schema.dump(category))
 

@@ -210,6 +210,7 @@ def import_casas(file_bytes):
 def import_menu(file_bytes, franchisee_id):
     import openpyxl
     from models import Category, Dish
+    from utils.category_icon import suggest_icon_for_category_name
     from extensions import db
 
     if not franchisee_id:
@@ -232,7 +233,12 @@ def import_menu(file_bytes, franchisee_id):
                 desc = str(row[1]).strip() if len(row) > 1 and row[1] else None
                 cat = Category.query.filter_by(franchisee_id=franchisee_id, name=nombre.strip()).first()
                 if not cat:
-                    cat = Category(franchisee_id=franchisee_id, name=nombre.strip(), description=desc)
+                    cat = Category(
+                        franchisee_id=franchisee_id,
+                        name=nombre.strip(),
+                        description=desc,
+                        icon=suggest_icon_for_category_name(nombre.strip()),
+                    )
                     db.session.add(cat)
                     db.session.flush()
                     cats_created += 1

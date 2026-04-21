@@ -6,25 +6,22 @@
 
 <div class="card mb-3">
   <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5 class="card-title mb-0">Categorías</h5>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openCatForm()">Nueva</button>
+    <div class="d-flex flex-wrap gap-3 align-items-end justify-content-between">
+      <div class="flex-grow-1" style="min-width: 220px;">
+        <label class="form-label small text-muted mb-1" for="menu-global-search">Buscar plato o categoría</label>
+        <input type="search" id="menu-global-search" class="form-control" placeholder="Escribe para filtrar…" autocomplete="off">
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-primary" onclick="openDishForm()"><i class="bi bi-plus-circle me-1"></i>Nuevo plato</button>
+        <button type="button" class="btn btn-primary" onclick="openCatForm()"><i class="bi bi-folder-plus me-1"></i>Nueva categoría</button>
+      </div>
     </div>
-    <div id="cat-loading" class="text-center text-muted py-4">Cargando...</div>
-    <div id="cat-content" style="display:none;"></div>
+    <p class="small text-muted mb-0 mt-2">El menú está organizado por categoría. Use la tabla para cambiar precio y disponibilidad al instante.</p>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5 class="card-title mb-0">Platos</h5>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openDishForm()">Nuevo</button>
-    </div>
-    <div id="dish-loading" class="text-center text-muted py-4">Cargando...</div>
-    <div id="dish-content" style="display:none;"></div>
-  </div>
-</div>
+<div id="menu-loading" class="text-center text-muted py-5">Cargando menú…</div>
+<div id="menu-accordion-wrap" style="display:none;"></div>
 
 <!-- Modal categoría -->
 <div id="modal-cat" class="modal-overlay" onclick="if(event.target===this) modalHide('modal-cat')">
@@ -41,6 +38,11 @@
           <div class="mb-3">
             <label class="form-label">Descripción</label>
             <input type="text" id="cat-description" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="cat-icon">Icono (Bootstrap Icons)</label>
+            <input type="text" id="cat-icon" class="form-control" placeholder="Ej: cup-hot (vacío = según nombre)">
+            <small class="text-muted">Sin prefijo <code>bi-</code>. <a href="https://icons.getbootstrap.com/" target="_blank" rel="noopener">Lista</a></small>
           </div>
         </div>
         <div class="modal-footer">
@@ -60,25 +62,29 @@
       <form id="form-dish" onsubmit="saveDish(event)">
         <div class="modal-body">
           <input type="hidden" id="dish-id" value="">
+          <input type="hidden" id="dish-category-preset" value="">
           <div class="mb-3">
             <label class="form-label">Nombre</label>
             <input type="text" id="dish-name" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Descripción</label>
-            <input type="text" id="dish-description" class="form-control">
-          </div>
-          <div class="mb-3">
             <label class="form-label">Precio (₡)</label>
             <input type="number" id="dish-price" class="form-control" step="0.01" min="0" required>
           </div>
-          <div class="mb-3">
+          <div class="mb-3" id="dish-category-wrap">
             <label class="form-label">Categoría</label>
-            <select id="dish-category-id" class="form-select" required></select>
+            <select id="dish-category-id" class="form-select"></select>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" id="dish-available" class="form-check-input" checked>
             <label class="form-check-label" for="dish-available">Disponible</label>
+          </div>
+          <p class="mb-0">
+            <button class="btn btn-link text-decoration-none p-0 small" type="button" data-bs-toggle="collapse" data-bs-target="#dish-more-collapse" aria-expanded="false">Más opciones (descripción)…</button>
+          </p>
+          <div class="collapse mt-2" id="dish-more-collapse">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="dish-description" class="form-control" placeholder="Opcional">
           </div>
         </div>
         <div class="modal-footer">
@@ -93,49 +99,132 @@
 <script>
 const msg = document.getElementById('msg');
 let categories = [];
+let allDishes = [];
 
-function loadCategories() {
-  document.getElementById('cat-loading').style.display = 'block';
-  document.getElementById('cat-content').style.display = 'none';
-  apiGet('/api/menu/categories')
-    .then(data => {
-      categories = data || [];
-      document.getElementById('cat-loading').style.display = 'none';
-      document.getElementById('cat-content').style.display = 'block';
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Nombre</th><th>Descripción</th><th class="text-end">Acciones</th></tr></thead><tbody>';
-      categories.forEach(c => {
-        html += '<tr><td>' + c.id + '</td><td>' + (c.name || '') + '</td><td>' + (c.description || '-') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editCat(' + c.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delCat(' + c.id + ',\'' + (c.name || '').replace(/'/g, "\\'") + '\')">Eliminar</button></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      document.getElementById('cat-content').innerHTML = html || '<p>No hay categorías.</p>';
-    })
-    .catch(e => { document.getElementById('cat-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+function shouldShowCategory(cat, q) {
+  if (!q) return true;
+  if ((cat.name || '').toLowerCase().includes(q)) return true;
+  return allDishes.some(d => d.category_id === cat.id &&
+    ((d.name || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q)));
 }
 
-function loadDishes() {
-  document.getElementById('dish-loading').style.display = 'block';
-  document.getElementById('dish-content').style.display = 'none';
-  apiGet('/api/menu/dishes')
-    .then(data => {
-      document.getElementById('dish-loading').style.display = 'none';
-      document.getElementById('dish-content').style.display = 'block';
-      const list = data || [];
-      let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr><th>ID</th><th>Nombre</th><th>Descripción</th><th class="text-end">Precio</th><th>Disponible</th><th class="text-end">Acciones</th></tr></thead><tbody>';
-      list.forEach(d => {
-        const cat = categories.find(c => c.id === d.category_id);
-        html += '<tr><td>' + d.id + '</td><td>' + (d.name || '') + '</td><td>' + (d.description || '-') + '</td><td class="text-end">' + (d.price != null ? '₡ ' + Number(d.price).toLocaleString() : '-') + '</td><td>' + (d.available ? 'Sí' : 'No') + '</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editDish(' + d.id + ')">Editar</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="delDish(' + d.id + ')">Eliminar</button></td></tr>';
+function dishesInCategoryForView(cat, q) {
+  const list = allDishes.filter(d => d.category_id === cat.id);
+  if (!q) return list;
+  if ((cat.name || '').toLowerCase().includes(q)) return list;
+  return list.filter(d =>
+    (d.name || '').toLowerCase().includes(q) ||
+    (d.description || '').toLowerCase().includes(q)
+  );
+}
+
+function renderMenuAccordion() {
+  const wrap = document.getElementById('menu-accordion-wrap');
+  const q = (document.getElementById('menu-global-search').value || '').trim().toLowerCase();
+  const visibleCats = categories.filter(c => shouldShowCategory(c, q));
+  if (visibleCats.length === 0) {
+    wrap.innerHTML = '<p class="text-muted">No hay categorías o ningún resultado para la búsqueda.</p>';
+    return;
+  }
+  let first = true;
+  let html = '<div class="accordion menu-accordion" id="menuAccordion">';
+  visibleCats.forEach(cat => {
+    const dishes = dishesInCategoryForView(cat, q);
+    const cid = cat.id;
+    const collapseId = 'menu-collapse-' + cid;
+    const headingId = 'menu-heading-' + cid;
+    const expanded = q ? true : first;
+    first = false;
+    const btnCls = expanded ? 'accordion-button' : 'accordion-button collapsed';
+    const colCls = expanded ? 'accordion-collapse collapse show' : 'accordion-collapse collapse';
+
+    html += '<div class="accordion-item border rounded mb-2 overflow-hidden">';
+    html += '<h2 class="accordion-header d-flex flex-wrap align-items-stretch" id="' + headingId + '">';
+    html += '<button class="' + btnCls + ' flex-grow-1 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" aria-expanded="' + expanded + '" aria-controls="' + collapseId + '">';
+    html += '<span class="me-2">' + catIconHtml(cat) + '</span><span class="fw-medium">' + (cat.name || '') + '</span>';
+    html += ' <span class="badge bg-secondary ms-2">' + dishes.length + '</span>';
+    html += '</button>';
+    html += '<div class="d-flex border-start bg-light">';
+    html += '<button type="button" class="btn btn-sm btn-outline-secondary rounded-0 border-0 px-2" title="Agregar plato" onclick="event.stopPropagation(); openDishForm(' + cid + ')"><i class="bi bi-plus-lg"></i></button>';
+    html += '<button type="button" class="btn btn-sm btn-outline-secondary rounded-0 border-0 border-start px-2" title="Editar categoría" onclick="event.stopPropagation(); editCat(' + cid + ')"><i class="bi bi-pencil"></i></button>';
+    html += '<button type="button" class="btn btn-sm btn-outline-danger rounded-0 border-0 border-start px-2" title="Eliminar categoría" onclick="event.stopPropagation(); delCat(' + cid + ',\'' + (cat.name || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>';
+    html += '</div></h2>';
+    html += '<div id="' + collapseId + '" class="' + colCls + '" data-bs-parent="#menuAccordion">';
+    html += '<div class="accordion-body p-0">';
+    if (dishes.length === 0) {
+      html += '<p class="text-muted small mb-0 p-3">Sin platos. <button type="button" class="btn btn-link btn-sm p-0" onclick="openDishForm(' + cid + ')">Agregar el primero</button></p>';
+    } else {
+      html += '<div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle menu-dish-table">';
+      html += '<thead class="table-light"><tr><th>Plato</th><th style="width:7rem">Precio (₡)</th><th style="width:5rem">Activo</th><th class="text-end" style="width:7rem">Acciones</th></tr></thead><tbody>';
+      dishes.forEach(d => {
+        const priceVal = d.price != null ? Number(d.price) : '';
+        const chk = d.available !== false ? ' checked' : '';
+        html += '<tr data-dish-id="' + d.id + '">';
+        html += '<td><span class="fw-medium">' + (d.name || '') + '</span>';
+        if (d.description) html += '<br><span class="small text-muted">' + (d.description || '') + '</span>';
+        html += '</td>';
+        html += '<td><input type="number" class="form-control form-control-sm menu-inline-price" min="0" step="1" value="' + priceVal + '" data-dish-id="' + d.id + '" title="Cambiar precio"></td>';
+        html += '<td class="text-center"><input type="checkbox" class="form-check-input menu-inline-avail"' + chk + ' data-dish-id="' + d.id + '"></td>';
+        html += '<td class="text-end text-nowrap">';
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="editDish(' + d.id + ')">Editar</button> ';
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="delDish(' + d.id + ')">Eliminar</button>';
+        html += '</td></tr>';
       });
       html += '</tbody></table></div>';
-      document.getElementById('dish-content').innerHTML = html || '<p>No hay platos.</p>';
-      fillCategorySelect();
+    }
+    html += '</div></div></div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.menu-inline-price').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      patchDishField(parseInt(inp.getAttribute('data-dish-id'), 10), 'price', parseFloat(inp.value) || 0);
+    });
+  });
+  wrap.querySelectorAll('.menu-inline-avail').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      patchDishField(parseInt(cb.getAttribute('data-dish-id'), 10), 'available', cb.checked);
+    });
+  });
+}
+
+function patchDishField(dishId, field, value) {
+  const payload = {};
+  payload[field] = value;
+  apiPut('/api/menu/dishes/' + dishId, payload)
+    .then(function (updated) {
+      var i = allDishes.findIndex(function (x) { return x.id === dishId; });
+      if (i >= 0) {
+        allDishes[i] = Object.assign({}, allDishes[i], updated);
+      }
     })
-    .catch(e => { document.getElementById('dish-loading').style.display = 'none'; showMsg(msg, 'Error: ' + e.message, 'error'); });
+    .catch(function (err) { showMsg(msg, err.message, 'error'); });
+}
+
+function loadMenuData() {
+  document.getElementById('menu-loading').style.display = 'block';
+  document.getElementById('menu-accordion-wrap').style.display = 'none';
+  Promise.all([apiGet('/api/menu/categories'), apiGet('/api/menu/dishes')])
+    .then(function (res) {
+      categories = res[0] || [];
+      allDishes = res[1] || [];
+      document.getElementById('menu-loading').style.display = 'none';
+      document.getElementById('menu-accordion-wrap').style.display = 'block';
+      fillCategorySelect();
+      renderMenuAccordion();
+    })
+    .catch(function (e) {
+      document.getElementById('menu-loading').style.display = 'none';
+      showMsg(msg, 'Error: ' + e.message, 'error');
+    });
 }
 
 function fillCategorySelect() {
   const sel = document.getElementById('dish-category-id');
   sel.innerHTML = '<option value="">-- Categoría --</option>';
-  categories.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + (c.name || '') + '</option>'; });
+  categories.forEach(function (c) {
+    sel.innerHTML += '<option value="' + c.id + '">' + categoryOptionLabel(c) + '</option>';
+  });
 }
 
 function openCatForm() {
@@ -143,77 +232,117 @@ function openCatForm() {
   document.getElementById('cat-id').value = '';
   document.getElementById('cat-name').value = '';
   document.getElementById('cat-description').value = '';
+  document.getElementById('cat-icon').value = '';
   modalShow('modal-cat');
 }
 function editCat(id) {
-  const c = categories.find(x => x.id === id);
+  const c = categories.find(function (x) { return x.id === id; });
   if (!c) return;
   document.getElementById('modal-cat-title').textContent = 'Editar categoría';
   document.getElementById('cat-id').value = c.id;
   document.getElementById('cat-name').value = c.name || '';
   document.getElementById('cat-description').value = c.description || '';
+  document.getElementById('cat-icon').value = c.icon || '';
   modalShow('modal-cat');
 }
 function saveCat(e) {
   e.preventDefault();
   const id = document.getElementById('cat-id').value;
-  const data = { name: document.getElementById('cat-name').value.trim(), description: document.getElementById('cat-description').value.trim() };
+  const iconRaw = document.getElementById('cat-icon').value.trim().replace(/^bi-/, '');
+  const data = {
+    name: document.getElementById('cat-name').value.trim(),
+    description: document.getElementById('cat-description').value.trim(),
+    icon: iconRaw || null
+  };
   const p = id ? apiPut('/api/menu/categories/' + id, data) : apiPost('/api/menu/categories', data);
-  p.then(() => { modalHide('modal-cat'); showMsg(msg, 'Guardado correctamente.', 'success'); loadCategories(); loadDishes(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  p.then(function () {
+    modalHide('modal-cat');
+    showMsg(msg, 'Guardado correctamente.', 'success');
+    loadMenuData();
+  }).catch(function (err) { showMsg(msg, err.message, 'error'); });
 }
 function delCat(id, name) {
   if (!confirm('¿Eliminar la categoría "' + name + '" y todos sus platos?')) return;
   apiDelete('/api/menu/categories/' + id)
-    .then(() => { showMsg(msg, 'Categoría eliminada.', 'success'); loadCategories(); loadDishes(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+    .then(function () { showMsg(msg, 'Categoría eliminada.', 'success'); loadMenuData(); })
+    .catch(function (err) { showMsg(msg, err.message, 'error'); });
 }
 
-function openDishForm() {
+function openDishForm(prefCatId) {
   document.getElementById('modal-dish-title').textContent = 'Nuevo plato';
   document.getElementById('dish-id').value = '';
   document.getElementById('dish-name').value = '';
   document.getElementById('dish-description').value = '';
   document.getElementById('dish-price').value = '';
   document.getElementById('dish-available').checked = true;
-  fillCategorySelect();
+  var more = document.getElementById('dish-more-collapse');
+  if (more && typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+    var c = bootstrap.Collapse.getInstance(more);
+    if (c) c.hide();
+  }
+  if (prefCatId) {
+    document.getElementById('dish-category-preset').value = String(prefCatId);
+    document.getElementById('dish-category-wrap').style.display = 'none';
+  } else {
+    document.getElementById('dish-category-preset').value = '';
+    document.getElementById('dish-category-wrap').style.display = 'block';
+    fillCategorySelect();
+  }
   modalShow('modal-dish');
 }
+
 function editDish(id) {
-  apiGet('/api/menu/dishes/' + id).then(d => {
+  apiGet('/api/menu/dishes/' + id).then(function (d) {
     document.getElementById('modal-dish-title').textContent = 'Editar plato';
     document.getElementById('dish-id').value = d.id;
     document.getElementById('dish-name').value = d.name || '';
     document.getElementById('dish-description').value = d.description || '';
     document.getElementById('dish-price').value = d.price != null ? d.price : '';
     document.getElementById('dish-available').checked = d.available !== false;
-    document.getElementById('dish-category-id').value = d.category_id || '';
+    document.getElementById('dish-category-preset').value = '';
+    document.getElementById('dish-category-wrap').style.display = 'block';
     fillCategorySelect();
+    document.getElementById('dish-category-id').value = d.category_id || '';
     modalShow('modal-dish');
-  }).catch(err => showMsg(msg, err.message, 'error'));
+  }).catch(function (err) { showMsg(msg, err.message, 'error'); });
 }
+
 function saveDish(e) {
   e.preventDefault();
   const id = document.getElementById('dish-id').value;
+  const preset = document.getElementById('dish-category-preset').value;
+  const catFromSelect = document.getElementById('dish-category-id').value;
+  const category_id = preset ? parseInt(preset, 10) : parseInt(catFromSelect, 10);
+  if (!category_id) {
+    showMsg(msg, 'Seleccione una categoría.', 'error');
+    return;
+  }
   const data = {
     name: document.getElementById('dish-name').value.trim(),
     description: document.getElementById('dish-description').value.trim(),
     price: parseFloat(document.getElementById('dish-price').value) || 0,
-    category_id: parseInt(document.getElementById('dish-category-id').value, 10),
+    category_id: category_id,
     available: document.getElementById('dish-available').checked
   };
   const p = id ? apiPut('/api/menu/dishes/' + id, data) : apiPost('/api/menu/dishes', data);
-  p.then(() => { modalHide('modal-dish'); showMsg(msg, 'Plato guardado.', 'success'); loadDishes(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+  p.then(function () {
+    modalHide('modal-dish');
+    showMsg(msg, 'Plato guardado.', 'success');
+    loadMenuData();
+  }).catch(function (err) { showMsg(msg, err.message, 'error'); });
 }
+
 function delDish(id) {
   if (!confirm('¿Eliminar este plato?')) return;
   apiDelete('/api/menu/dishes/' + id)
-    .then(() => { showMsg(msg, 'Plato eliminado.', 'success'); loadDishes(); })
-    .catch(err => showMsg(msg, err.message, 'error'));
+    .then(function () { showMsg(msg, 'Plato eliminado.', 'success'); loadMenuData(); })
+    .catch(function (err) { showMsg(msg, err.message, 'error'); });
 }
 
-loadCategories();
-loadDishes();
+document.getElementById('menu-global-search').addEventListener('input', function () {
+  renderMenuAccordion();
+});
+
+loadMenuData();
 </script>
 {% endblock %}

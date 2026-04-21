@@ -1,7 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
-<h1 class="h4 mb-4">Inicio</h1>
+<h1 class="h4 mb-3">Inicio</h1>
+
+<div id="welcome-tour" class="alert alert-info border-0 shadow-sm mb-4 d-none flex-wrap align-items-start justify-content-between gap-2" role="region" aria-label="Consejos">
+  <div>
+    <strong><i class="bi bi-lightbulb me-1"></i>Bienvenido</strong>
+    <p class="mb-0 small mt-1">Elija la <strong>casa</strong> arriba para filtrar todo el sistema. En <strong>Pedidos</strong> use <strong>Por categoría</strong> o <strong>Buscar</strong> (Ctrl+K o tecla /) para armar el pedido más rápido.</p>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="welcome-tour-dismiss">Entendido</button>
+</div>
 
 <div class="card mb-4">
   <div class="card-body">
@@ -104,6 +112,21 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+(function() {
+  var k = 'erp_welcome_tour_v1';
+  try {
+    if (!localStorage.getItem(k)) {
+      var el = document.getElementById('welcome-tour');
+      if (el) { el.classList.remove('d-none'); el.classList.add('d-flex'); }
+    }
+  } catch (e) {}
+  var btn = document.getElementById('welcome-tour-dismiss');
+  if (btn) btn.addEventListener('click', function() {
+    try { localStorage.setItem(k, '1'); } catch (e) {}
+    var el = document.getElementById('welcome-tour');
+    if (el) el.classList.add('d-none');
+  });
+})();
 var chartData = null;
 var chartInstance = null;
 
