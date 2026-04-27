@@ -1,6 +1,7 @@
 """API de facturación electrónica."""
 from decimal import Decimal
 from flask import Blueprint, request, jsonify
+from sqlalchemy import text
 
 from extensions import db
 from models import Invoice, InvoiceItem, Order, OrderItem, Client, Table
@@ -8,6 +9,28 @@ from utils.franchisee import get_or_default_franchisee_id
 from utils.hacienda import HaciendaService
 
 invoices_bp = Blueprint("invoices", __name__, url_prefix="/api/invoices")
+
+
+def _allocate_next_invoice_hacienda_seq(franchisee_id: int) -> int:
+    """
+    Reserva atómicamente el siguiente consecutivo numérico para la franquicia.
+    Requiere restricción UNIQUE(franchisee_id) en app_settings (ver scripts/migrate_invoice_hacienda_seq.py).
+    """
+    row = db.session.execute(
+        text(
+            """
+            INSERT INTO app_settings (franchisee_id, app_name, invoice_hacienda_last_seq)
+            VALUES (:fid, 'ERP Raul Castaño', 1)
+            ON CONFLICT (franchisee_id) DO UPDATE
+            SET invoice_hacienda_last_seq = app_settings.invoice_hacienda_last_seq + 1
+            RETURNING invoice_hacienda_last_seq
+            """
+        ),
+        {"fid": franchisee_id},
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("No se pudo asignar consecutivo de factura")
+    return int(row[0])
 
 
 @invoices_bp.route("", methods=["GET"])
@@ -103,7 +126,7 @@ def create_invoice():
             "tax": float(tax),
         })
 
-    next_seq = Invoice.query.filter_by(franchisee_id=fid).count() + 1
+    next_seq = _allocate_next_invoice_hacienda_seq(fid)
     hacienda = HaciendaService()
     result = hacienda.emitir_documento(
         tipo=tipo_documento,

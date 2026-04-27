@@ -84,6 +84,28 @@
 </div>
 <div class="card mt-4">
   <div class="card-body">
+    <h5 class="card-title mb-3"><i class="bi bi-receipt me-2"></i>Consecutivo de facturas (Hacienda)</h5>
+    <p class="text-muted small mb-2">Los valores son <strong>por franquicia</strong>: seleccioná la casa en la barra superior y guardá aquí el último consecutivo que ya quedó reportado a Hacienda para esa sucursal. El ERP usará el siguiente número al emitir la próxima factura y lo irá actualizando solo.</p>
+    <p class="small mb-3"><span class="text-muted">Casa actual:</span> <strong id="invoice-franchise-label">—</strong></p>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Último consecutivo reportado a Hacienda</label>
+        <input type="number" id="invoice-hacienda-last-seq" class="form-control" min="0" step="1" value="0" title="Número secuencial interno del último comprobante ya aceptado en Hacienda para esta casa.">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Próximo número al emitir</label>
+        <input type="text" id="invoice-hacienda-next-preview" class="form-control" readonly value="1">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Facturas en el ERP (esta casa)</label>
+        <input type="text" id="invoice-count-erp" class="form-control" readonly value="0">
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary mt-3" onclick="saveHaciendaInvoiceSeq()"><i class="bi bi-save me-1"></i>Guardar consecutivo</button>
+  </div>
+</div>
+<div class="card mt-4">
+  <div class="card-body">
     <h5 class="card-title mb-3"><i class="bi bi-file-earmark-excel me-2"></i>Plantillas Excel</h5>
     <p class="text-muted small mb-3">Descarga archivos Excel con el formato correcto para importar inventario, planilla, casas, menú, clientes y más. Consulta FORMATOS_EXCEL.md en la documentación.</p>
     <div class="d-flex flex-wrap gap-2 mb-4">
@@ -239,6 +261,15 @@ function fillCryptoUi(s) {
     : 'No hay ningún .p12 disponible en data/Llave.';
 }
 
+function updateInvoiceSeqPreview() {
+  var el = document.getElementById('invoice-hacienda-last-seq');
+  var prev = document.getElementById('invoice-hacienda-next-preview');
+  if (!el || !prev) return;
+  var n = parseInt(el.value, 10);
+  if (isNaN(n) || n < 0) n = 0;
+  prev.value = String(n + 1);
+}
+
 function loadSettings() {
   fetch(API_SETTINGS)
     .then(r => r.json())
@@ -250,8 +281,39 @@ function loadSettings() {
       updateLogoPreview(s.logo_url || '');
       updateFaviconPreview(s.favicon_url || '');
       fillCryptoUi(s);
+      var fl = document.getElementById('invoice-franchise-label');
+      if (fl) {
+        fl.textContent = (s.franchisee_name || '') + (s.franchisee_code ? ' (' + s.franchisee_code + ')' : '');
+        if (!s.franchisee_id) fl.textContent = 'Seleccioná una casa en el menú superior';
+      }
+      var last = document.getElementById('invoice-hacienda-last-seq');
+      if (last) {
+        last.value = (s.invoice_hacienda_last_seq != null && s.invoice_hacienda_last_seq !== '') ? s.invoice_hacienda_last_seq : 0;
+      }
+      var prev = document.getElementById('invoice-hacienda-next-preview');
+      if (prev) prev.value = String(s.invoice_hacienda_next_seq_preview != null ? s.invoice_hacienda_next_seq_preview : 1);
+      var cnt = document.getElementById('invoice-count-erp');
+      if (cnt) cnt.value = String(s.invoices_count_in_erp != null ? s.invoices_count_in_erp : 0);
     })
     .catch(e => { showMsg('Error: ' + e.message, true); });
+}
+
+function saveHaciendaInvoiceSeq() {
+  var el = document.getElementById('invoice-hacienda-last-seq');
+  var v = el ? parseInt(el.value, 10) : 0;
+  if (isNaN(v) || v < 0) { showMsg('Valor de consecutivo inválido', true); return; }
+  fetch(API_SETTINGS, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invoice_hacienda_last_seq: v })
+  })
+  .then(r => r.json().then(function(j) { return [r.ok, j]; }))
+  .then(function(arr) {
+    if (!arr[0]) throw new Error(arr[1].error || 'Error');
+    showMsg('Consecutivo guardado para esta franquicia.', false);
+    loadSettings();
+  })
+  .catch(function(e) { showMsg('Error: ' + (e.message || e), true); });
 }
 
 function saveCryptoSettings() {
@@ -388,6 +450,8 @@ function setupImportExcel() {
 
 document.addEventListener('DOMContentLoaded', function() {
   loadSettings();
+  var lastSeq = document.getElementById('invoice-hacienda-last-seq');
+  if (lastSeq) lastSeq.addEventListener('input', updateInvoiceSeqPreview);
   setupImportExcel();
   var y = new Date().getFullYear();
   var sel = document.getElementById('holidays-year');

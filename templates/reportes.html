@@ -71,6 +71,22 @@
   </div>
 </div>
 
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h6 class="mb-0"><i class="bi bi-diagram-3 me-1"></i>Ventas por categoría</h6>
+        <a href="#" id="rep-cat-csv" class="btn btn-sm btn-outline-secondary" title="Descargar para Excel o imprimir"><i class="bi bi-download me-1"></i>CSV</a>
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">Pedidos cobrados en el período, agrupados por familia del menú. El % es sobre el monto total de esas ventas.</p>
+        <div id="rep-cat-loading" class="text-muted py-3">Cargando...</div>
+        <div id="rep-cat-content" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const msg = document.getElementById('msg');
 function fmt(n) { return (n != null ? Number(n) : 0).toLocaleString('es-CR', {minimumFractionDigits: 2}); }
@@ -86,6 +102,9 @@ function getParams() {
 function cargarReportes() {
   const { desde, hasta } = getParams();
   const base = '?desde=' + encodeURIComponent(desde) + '&hasta=' + encodeURIComponent(hasta);
+  const csvUrl = '/api/reports/sales-by-category' + base + '&format=csv';
+  var csvLink = document.getElementById('rep-cat-csv');
+  if (csvLink) csvLink.href = csvUrl;
 
   // Ingresos vs gastos
   apiGet('/api/reports/income-vs-expenses' + base)
@@ -135,6 +154,26 @@ function cargarReportes() {
       }
     })
     .catch(() => { document.getElementById('rep-top-loading').style.display = 'none'; });
+
+  // Ventas por categoría
+  document.getElementById('rep-cat-loading').style.display = 'block';
+  document.getElementById('rep-cat-content').style.display = 'none';
+  apiGet('/api/reports/sales-by-category' + base)
+    .then(data => {
+      document.getElementById('rep-cat-loading').style.display = 'none';
+      document.getElementById('rep-cat-content').style.display = 'block';
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('rep-cat-content').innerHTML = '<p class="text-muted mb-0">Sin datos en el período.</p>';
+      } else {
+        let html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0"><thead><tr><th>Categoría</th><th class="text-end">Unidades</th><th class="text-end">Monto</th><th class="text-end">% del total</th></tr></thead><tbody>';
+        data.data.forEach(function(r) {
+          html += '<tr><td>' + (r.categoria || '') + '</td><td class="text-end">' + (r.unidades != null ? r.unidades : 0) + '</td><td class="text-end">₡ ' + fmt(r.monto) + '</td><td class="text-end">' + (r.porcentaje != null ? r.porcentaje : 0) + ' %</td></tr>';
+        });
+        html += '</tbody><tfoot><tr class="table-light fw-semibold"><td>Total</td><td class="text-end">' + data.data.reduce(function(s, r) { return s + (r.unidades || 0); }, 0) + '</td><td class="text-end">₡ ' + fmt(data.total_monto) + '</td><td class="text-end">100 %</td></tr></tfoot></table></div>';
+        document.getElementById('rep-cat-content').innerHTML = html;
+      }
+    })
+    .catch(function() { document.getElementById('rep-cat-loading').style.display = 'none'; });
 }
 
 // Init fechas

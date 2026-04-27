@@ -5,7 +5,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify, current_app, send_file
 from werkzeug.utils import secure_filename
 from extensions import db
-from models import AppSettings
+from models import AppSettings, Franchisee, Invoice
 from utils.franchisee import get_or_default_franchisee_id
 from utils.hacienda_crypto import list_p12_files, resolve_hacienda_p12_path
 
@@ -71,6 +71,20 @@ def get_settings():
         "favicon_url": s.favicon_url or "",
         "nav_icon": s.nav_icon or "",
     }
+    if fid:
+        last = int(getattr(s, "invoice_hacienda_last_seq", 0) or 0)
+        inv_count = Invoice.query.filter_by(franchisee_id=fid).count()
+        fr = db.session.get(Franchisee, fid)
+        out["franchisee_id"] = fid
+        out["franchisee_code"] = fr.code if fr else ""
+        out["franchisee_name"] = fr.name if fr else ""
+        out["invoice_hacienda_last_seq"] = last
+        out["invoice_hacienda_next_seq_preview"] = last + 1
+        out["invoices_count_in_erp"] = inv_count
+    else:
+        out["invoice_hacienda_last_seq"] = 0
+        out["invoice_hacienda_next_seq_preview"] = 1
+        out["invoices_count_in_erp"] = 0
     out.update(_crypto_settings_payload(fid))
     return jsonify(out)
 
@@ -98,6 +112,14 @@ def update_settings():
             if raw not in available:
                 return jsonify({"error": f"El archivo .p12 no está en data/Llave: {raw}"}), 400
             s.hacienda_p12_filename = raw
+    if fid and "invoice_hacienda_last_seq" in data and hasattr(s, "invoice_hacienda_last_seq"):
+        try:
+            v = int(data.get("invoice_hacienda_last_seq", 0))
+        except (TypeError, ValueError):
+            return jsonify({"error": "invoice_hacienda_last_seq debe ser un entero"}), 400
+        if v < 0:
+            return jsonify({"error": "El consecutivo no puede ser negativo"}), 400
+        s.invoice_hacienda_last_seq = v
     db.session.commit()
     out = {
         "app_name": s.app_name,
@@ -105,6 +127,16 @@ def update_settings():
         "favicon_url": s.favicon_url or "",
         "nav_icon": s.nav_icon or "",
     }
+    if fid:
+        last = int(getattr(s, "invoice_hacienda_last_seq", 0) or 0)
+        inv_count = Invoice.query.filter_by(franchisee_id=fid).count()
+        fr = db.session.get(Franchisee, fid)
+        out["franchisee_id"] = fid
+        out["franchisee_code"] = fr.code if fr else ""
+        out["franchisee_name"] = fr.name if fr else ""
+        out["invoice_hacienda_last_seq"] = last
+        out["invoice_hacienda_next_seq_preview"] = last + 1
+        out["invoices_count_in_erp"] = inv_count
     out.update(_crypto_settings_payload(fid))
     return jsonify(out)
 
