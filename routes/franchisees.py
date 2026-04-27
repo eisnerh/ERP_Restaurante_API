@@ -6,7 +6,7 @@ from models import (
     Franchisee, PayrollLocation, PayrollEntry, Payslip, PayslipLine,
     PaymentRecord, Employee, VacationRecord, PurchaseOrder, PurchaseOrderItem,
     Order, OrderItem, InventoryItem, InventoryAlert, Category, Dish,
-    Client, Supplier, Table, AppSettings,
+    Client, Supplier, Table, AppSettings, LoyaltyCoupon,
 )
 from models.inventory import item_suppliers
 from utils.franchisee import set_current_franchisee_id, get_current_franchisee_id
@@ -67,6 +67,32 @@ def create_franchisee():
     db.session.add(f)
     db.session.commit()
     return jsonify({"id": f.id, "code": f.code, "name": f.name}), 201
+
+
+@franchisees_bp.route("/bulk-text", methods=["POST"])
+def bulk_text_franchisees():
+    """
+    Alta masiva de casas desde texto pegado (sin Excel ni URI externas).
+    Body JSON: { "text": "..." } — mismas columnas que plantilla Excel de casas.
+    """
+    from utils.import_excel_api import import_casas_from_plain_text
+
+    data = request.get_json() or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": 'Envía el texto en JSON: {"text": "..."}'}), 400
+    try:
+        created, skipped, messages = import_casas_from_plain_text(text)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    tail = 80
+    return jsonify({
+        "created": created,
+        "skipped": skipped,
+        "messages": messages[:tail],
+        "messages_truncated": max(0, len(messages) - tail),
+    })
 
 
 @franchisees_bp.route("/<int:fid>", methods=["GET"])
@@ -170,6 +196,7 @@ def update_franchisee(fid):
 
 def _delete_franchisee_cascade(fid):
     """Elimina en cascada todos los datos del franquiciado y luego el franquiciado."""
+    LoyaltyCoupon.query.filter_by(franchisee_id=fid).delete()
     loc_ids = [l.id for l in PayrollLocation.query.filter_by(franchisee_id=fid).all()]
     table_ids = [t.id for t in Table.query.filter_by(franchisee_id=fid).all()]
     # 1. OrderItem, Order (Order tiene table_id; Table tiene franchisee_id)

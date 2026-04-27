@@ -15,6 +15,7 @@ from routes.reports import reports_bp
 from routes.operational_expenses import operational_expenses_bp
 from routes.payment_methods import payment_methods_bp
 from routes.discount_reasons import discount_reasons_bp
+from routes.loyalty_coupons import loyalty_bp
 
 
 def create_app(config_class=Config):
@@ -49,6 +50,7 @@ def create_app(config_class=Config):
     app.register_blueprint(operational_expenses_bp)
     app.register_blueprint(payment_methods_bp)
     app.register_blueprint(discount_reasons_bp)
+    app.register_blueprint(loyalty_bp)
 
     @app.before_request
     def ensure_default_franchisee():
@@ -129,6 +131,7 @@ def create_app(config_class=Config):
                 "invoices": "/api/invoices",
                 "reports": "/api/reports",
                 "operational_expenses": "/api/operational-expenses",
+                "loyalty": "/api/loyalty/coupons",
             },
         })
 
@@ -155,11 +158,11 @@ def create_app(config_class=Config):
         from models import Franchisee, Holiday
         if Franchisee.query.count() == 0:
             casas = [
-                ("001", "Casa Plaza San Carlos"),
-                ("002", "Casa del Mirador"),
-                ("003", "Casa del Brunch"),
-                ("004", "Casa del Pan artesanal"),
-                ("005", "Casa del Coronado"),
+                ("001", "Mi casa Donde todo Empezo"),
+                ("002", "Mi casa del Mirador"),
+                ("003", "Mi Casa del Brunch"),
+                ("004", "Mi Casa del Pan Artesanal"),
+                ("005", "Mi Casa de las Plantas Coronado"),
             ]
             for code, name in casas:
                 db.session.add(Franchisee(code=code, name=name, active=True))

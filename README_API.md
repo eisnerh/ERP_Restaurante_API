@@ -35,6 +35,18 @@ python scripts/import_inventory_excel.py --franchisee-id 1
 | GET/POST | `/api/franchisees` | Franquiciados |
 | POST | `/api/franchisees/current` | Establecer franquiciado actual |
 
+### Fidelización (app Fidelitity)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/loyalty/locations?franchisee_id=` | Ubicaciones del franquiciado (dónde aplica el cupón) |
+| POST | `/api/loyalty/coupons` | Crear cupón: `franchisee_id`, `invoice_number`, `kind` (`discount` \| `reward`), `discount_percent` y/o `discount_amount`, `reward_description`, `location_id` opcional |
+| GET | `/api/loyalty/coupons?franchisee_id=&status=` | Listar cupones (`status`: `active`, `redeemed`, `all`) |
+| GET | `/api/loyalty/coupons/resolve?token=` | Datos del cupón para el cliente (público) |
+| POST | `/api/loyalty/coupons/redeem` | Body JSON `{ "token": "..." }` — canje |
+
+Tras desplegar el modelo, ejecutar `python scripts/init_db.py` o `python scripts/migrate_loyalty_coupons.py` para crear la tabla `loyalty_coupons`.
+
 ---
 
 ## Inventario

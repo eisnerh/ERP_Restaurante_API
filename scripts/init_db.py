@@ -73,16 +73,16 @@ def create_tables():
             print("   Puesto 'Gerente Socio' creado (₡ 500 000).")
         if Franchisee.query.count() == 0:
             casas = [
-                ("001", "Casa Plaza San Carlos"),
-                ("002", "Casa del Mirador"),
-                ("003", "Casa del Brunch"),
-                ("004", "Casa del Pan artesanal"),
-                ("005", "Casa del Coronado"),
+                ("001", "Mi casa Donde todo Empezo"),
+                ("002", "Mi casa del Mirador"),
+                ("003", "Mi Casa del Brunch"),
+                ("004", "Mi Casa del Pan Artesanal"),
+                ("005", "Mi Casa de las Plantas Coronado"),
             ]
             for code, name in casas:
                 db.session.add(Franchisee(code=code, name=name, active=True))
             db.session.commit()
-            print("   Casas de Don Raul creadas: Plaza San Carlos, Mirador, Brunch, Pan artesanal, Coronado")
+            print("   Franquicias creadas: Donde todo Empezo, Mirador, Brunch, Pan Artesanal, Plantas Coronado")
         from sqlalchemy import inspect
         insp = inspect(db.engine)
         return sorted(insp.get_table_names())

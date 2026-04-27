@@ -206,6 +206,101 @@ def import_casas(file_bytes):
     return created, None
 
 
+def import_casas_from_plain_text(text: str):
+    """
+    Crea franquiciados desde texto pegado (pantalla Casas). No requiere Excel ni URL externa.
+    Una casa por línea. Separador: punto y coma (recomendado), tabulador o coma.
+
+    Formatos:
+      - nombre
+      - codigo; nombre
+      - codigo; nombre; direccion; telefono; email; activo
+        (activo: Si/No/S/1, opcional; por defecto Si)
+
+    Líneas vacías o que empiezan con # se ignoran.
+    Retorna (creados, omitidos, mensajes).
+    """
+    from models import Franchisee
+    from extensions import db
+
+    created = 0
+    skipped = 0
+    messages = []
+    batch_names = set()
+    batch_codes = set()
+
+    for raw_line in text.splitlines():
+        line = (raw_line or "").strip()
+        if not line or line.startswith("#"):
+            continue
+        if ";" in line:
+            parts = [p.strip() for p in line.split(";")]
+        elif "\t" in line:
+            parts = [p.strip() for p in line.split("\t")]
+        elif "," in line:
+            parts = [p.strip() for p in line.split(",")]
+        else:
+            parts = [line]
+
+        if len(parts) == 1:
+            code, name = None, parts[0]
+            address = phone = email = None
+            active = True
+        elif len(parts) == 2:
+            code, name = (parts[0] or None), parts[1]
+            address = phone = email = None
+            active = True
+        else:
+            code = parts[0] or None
+            name = parts[1]
+            address = parts[2] or None if len(parts) > 2 else None
+            phone = parts[3] or None if len(parts) > 3 else None
+            email = parts[4] or None if len(parts) > 4 else None
+            active = _parse_si_no(parts[5]) if len(parts) > 5 else True
+
+        if not name or not str(name).strip():
+            skipped += 1
+            messages.append(f"Omitido (sin nombre): {line[:60]}")
+            continue
+        nm = str(name).strip()
+        if nm in batch_names:
+            skipped += 1
+            messages.append(f"Omitido (nombre repetido en el texto): {nm}")
+            continue
+        if Franchisee.query.filter_by(name=nm).first():
+            skipped += 1
+            messages.append(f"Omitido (ya existe en base): {nm}")
+            continue
+
+        if code:
+            if code in batch_codes:
+                skipped += 1
+                messages.append(f"Omitido (código repetido en el texto): {code}")
+                continue
+            if Franchisee.query.filter_by(code=code).first():
+                skipped += 1
+                messages.append(f"Omitido (código ya existe): {code}")
+                continue
+
+        batch_names.add(nm)
+        if code:
+            batch_codes.add(code)
+
+        db.session.add(Franchisee(
+            code=code,
+            name=nm,
+            address=address or None,
+            phone=phone or None,
+            email=email or None,
+            active=active,
+        ))
+        created += 1
+
+    if created:
+        db.session.commit()
+    return created, skipped, messages
+
+
 # --- Menú (Categorías + Platos) ---
 def import_menu(file_bytes, franchisee_id):
     import openpyxl

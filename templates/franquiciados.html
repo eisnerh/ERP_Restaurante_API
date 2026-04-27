@@ -9,6 +9,20 @@
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
       <input type="text" id="franchisees-search" class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar..." oninput="loadFranchisees()">
       <button type="button" class="btn btn-sm btn-primary" onclick="openFranchiseeForm()">Nueva casa</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleBulkPanel()">Cargar desde texto</button>
+    </div>
+    <div id="franchisees-bulk-panel" class="border rounded p-3 mb-3 bg-light" style="display:none;">
+      <h6 class="mb-2">Carga directa (sin URL ni archivo)</h6>
+      <p class="text-muted small mb-2">Pegá una casa por línea. Separador recomendado: <strong>punto y coma</strong> (así las direcciones pueden llevar comas).</p>
+      <ul class="small text-muted mb-2">
+        <li><code>Sucursal Centro</code> — solo nombre</li>
+        <li><code>001;Sucursal Centro</code> — código y nombre</li>
+        <li><code>001;Sucursal Centro;San José;2222-3333;correo@ejemplo.com;Si</code> — código; nombre; dirección; teléfono; email; activo (Si/No)</li>
+        <li>Líneas que empiezan con <code>#</code> son comentarios.</li>
+      </ul>
+      <textarea id="franchisees-bulk-text" class="form-control font-monospace small" rows="8" placeholder="# Ejemplo&#10;001;Casa Plaza;Av. Central 1;2000-1000;;Si&#10;002;Casa Mirador;Cartago;;;Si"></textarea>
+      <button type="button" class="btn btn-sm btn-primary mt-2" onclick="importFranchiseesBulk()"><i class="bi bi-upload me-1"></i>Importar líneas</button>
+      <div id="franchisees-bulk-result" class="small mt-2 text-muted" style="display:none;"></div>
     </div>
     <div id="franchisees-loading" class="text-center text-muted py-4">Cargando...</div>
     <div id="franchisees-content" style="display:none;"></div>
@@ -69,6 +83,47 @@
 var API_FRANCHISEES = "/api/franchisees";
 const msg = document.getElementById('msg');
 var franchiseesList = [];
+
+function toggleBulkPanel() {
+  var p = document.getElementById('franchisees-bulk-panel');
+  if (!p) return;
+  p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+}
+
+function importFranchiseesBulk() {
+  var ta = document.getElementById('franchisees-bulk-text');
+  var out = document.getElementById('franchisees-bulk-result');
+  var text = (ta && ta.value) ? ta.value : '';
+  if (!text.trim()) { showMsg(msg, 'Pegá al menos una línea.', 'error'); return; }
+  out.style.display = 'block';
+  out.textContent = 'Importando…';
+  fetchWithTimeout(API_FRANCHISEES + '/bulk-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text })
+  }).then(function(r) {
+    return r.text().then(function(t) {
+      var j = {};
+      try { j = t ? JSON.parse(t) : {}; } catch (e) { throw new Error(t || r.statusText); }
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      return j;
+    });
+  }).then(function(j) {
+    var lines = 'Creadas: ' + (j.created || 0) + ', omitidas: ' + (j.skipped || 0) + '.';
+    if (j.messages && j.messages.length) {
+      lines += '\n' + j.messages.join('\n');
+    }
+    if (j.messages_truncated) {
+      lines += '\n… y ' + j.messages_truncated + ' mensajes más.';
+    }
+    out.textContent = lines;
+    showMsg(msg, 'Importación lista: ' + (j.created || 0) + ' casa(s) nuevas.', 'success');
+    loadFranchisees();
+  }).catch(function(e) {
+    out.textContent = 'Error: ' + (e.message || e);
+    showMsg(msg, out.textContent, 'error');
+  });
+}
 
 function loadFranchisees() {
   document.getElementById('franchisees-loading').style.display = 'block';

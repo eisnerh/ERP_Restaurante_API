@@ -33,7 +33,7 @@ Sistema de gestión integral para **franquicias de restaurantes**. Permite admin
 - **API REST**: Endpoints JSON para integración con otros sistemas.
 - **Importación Excel**: Inventario y planilla desde archivos Excel.
 - **Reportes PDF**: Desgloses de pago para imprimir y firmar.
-- **Casas de Don Raul**: Plaza San Carlos, Mirador, Brunch, Pan artesanal, Coronado.
+- **Franquicias** (semilla): Mi casa Donde todo Empezo, Mi casa del Mirador, Mi Casa del Brunch, Mi Casa del Pan Artesanal, Mi Casa de las Plantas Coronado.
 - **Vacaciones**: Registro de días disfrutados y reporte por empleado.
 - **Alertas de inventario**: Notificaciones cuando el stock está bajo.
 

@@ -28,6 +28,7 @@ from .app_settings import AppSettings
 from .holiday import Holiday
 from .payment_method import PaymentMethod
 from .discount_reason import DiscountReason
+from .loyalty_coupon import LoyaltyCoupon
 
 __all__ = [
     "Franchisee",
@@ -43,4 +44,5 @@ __all__ = [
     "Holiday",
     "PaymentMethod",
     "DiscountReason",
+    "LoyaltyCoupon",
 ]
