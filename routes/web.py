@@ -49,6 +49,7 @@ def pedido_tiquete(order_id):
         s = AppSettings.get(franchisee_id=fid)
         app_name = s.app_name if s else None
     except Exception:
+        db.session.rollback()
         app_name = None
     return render_template("tiquete_pedido.html", order=order, app_name=app_name)
 
@@ -84,6 +85,7 @@ def factura_imprimir(invoice_id):
         s = AppSettings.get(franchisee_id=fid)
         app_name = s.app_name if s else None
     except Exception:
+        db.session.rollback()
         app_name = None
     return render_template("factura_imprimir.html", inv=inv, app_name=app_name)
 

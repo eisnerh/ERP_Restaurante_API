@@ -44,4 +44,7 @@ class AppSettings(db.Model):
                     s = cls.query.filter_by(franchisee_id=franchisee_id).order_by(cls.id.asc()).first()
                 else:
                     s = cls.query.filter_by(franchisee_id=None).order_by(cls.id.asc()).first()
+            except Exception:
+                db.session.rollback()
+                raise
         return s

@@ -84,11 +84,14 @@ def create_app(config_class=Config):
             fid = get_or_default_franchisee_id()
             current = db.session.get(Franchisee, fid) if fid else None
         except Exception:
-            pass
+            db.session.rollback()
+            fid = None
+            current = None
         try:
             franchisees = Franchisee.query.filter_by(active=True).order_by(Franchisee.name).all()
         except Exception:
-            pass
+            db.session.rollback()
+            franchisees = []
         try:
             s = AppSettings.get(franchisee_id=fid) if fid else AppSettings.get(franchisee_id=None)
             app_name = s.app_name or "ERP Raul Castaño"
@@ -96,6 +99,7 @@ def create_app(config_class=Config):
             app_favicon_url = s.favicon_url or ""
             app_nav_icon = s.nav_icon or ""
         except Exception:
+            db.session.rollback()
             app_name = "ERP Raul Castaño"
             app_logo_url = app_favicon_url = app_nav_icon = ""
         return {
