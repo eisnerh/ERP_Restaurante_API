@@ -1,5 +1,11 @@
 # ERP Raul Castaño
 
+<!-- local-development:start -->
+## Desarrollo local
+
+Consulta [RUNNING.md](RUNNING.md) para ubicar cada componente, abrirlo en su IDE, compilarlo y conocer las comprobaciones realizadas y los requisitos pendientes.
+<!-- local-development:end -->
+
 Sistema de gestión integral para **franquicias de restaurantes**. Permite administrar múltiples sucursales (franquiciados) desde una sola aplicación, cada una con su propio inventario, clientes, compras y planilla.
 
 ---
