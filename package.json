@@ -1,0 +1,10 @@
+{
+  "name": "erp-restaurant-ui-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/test_clients_ui.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "~29.0.1"
+  }
+}

@@ -117,3 +117,7 @@ __pycache__/
 htmlcov/
 *.egg-info/
 # local-development:end
+
+# Optional frontend test dependencies
+node_modules/
+.npm/

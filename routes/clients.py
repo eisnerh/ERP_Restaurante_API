@@ -5,6 +5,7 @@ from extensions import db
 from models import Client
 from schemas import ClientSchema
 from utils.franchisee import get_or_default_franchisee_id
+from utils.client_payload import normalize_client_payload, parse_active
 
 clients_bp = Blueprint("clients", __name__, url_prefix="/api/clients")
 
@@ -30,7 +31,10 @@ def list_clients():
             )
         )
     if active is not None:
-        query = query.filter(Client.active == (active in ("1", "true", "yes")))
+        try:
+            query = query.filter(Client.active == parse_active(active))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
     clients = query.all()
     return jsonify(clients_schema.dump(clients))
 
@@ -41,20 +45,11 @@ def create_client():
     fid = get_or_default_franchisee_id()
     if not fid:
         return jsonify({"error": "Selecciona un franquiciado"}), 400
-    data = request.get_json() or {}
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "El nombre es obligatorio"}), 400
-    client = Client(
-        franchisee_id=fid,
-        name=name,
-        tax_id=(data.get("tax_id") or "").strip() or None,
-        email=(data.get("email") or "").strip() or None,
-        phone=(data.get("phone") or "").strip() or None,
-        address=(data.get("address") or "").strip() or None,
-        notes=(data.get("notes") or "").strip() or None,
-        active=data.get("active", True),
-    )
+    try:
+        values = normalize_client_payload(request.get_json(silent=True))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    client = Client(franchisee_id=fid, **values)
     db.session.add(client)
     db.session.commit()
     return jsonify(client_schema.dump(client)), 201
@@ -77,24 +72,12 @@ def update_client(client_id):
     client = Client.query.filter_by(id=client_id, franchisee_id=fid).first() if fid else None
     if not client:
         return jsonify({"error": "Cliente no encontrado"}), 404
-    data = request.get_json() or {}
-    if "name" in data:
-        name = (data.get("name") or "").strip()
-        if not name:
-            return jsonify({"error": "El nombre no puede estar vacío"}), 400
-        client.name = name
-    if "tax_id" in data:
-        client.tax_id = (data.get("tax_id") or "").strip() or None
-    if "email" in data:
-        client.email = (data.get("email") or "").strip() or None
-    if "phone" in data:
-        client.phone = (data.get("phone") or "").strip() or None
-    if "address" in data:
-        client.address = (data.get("address") or "").strip() or None
-    if "notes" in data:
-        client.notes = (data.get("notes") or "").strip() or None
-    if "active" in data:
-        client.active = bool(data.get("active"))
+    try:
+        values = normalize_client_payload(request.get_json(silent=True), partial=True)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    for field, value in values.items():
+        setattr(client, field, value)
     db.session.commit()
     return jsonify(client_schema.dump(client))
 

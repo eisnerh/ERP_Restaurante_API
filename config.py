@@ -1,6 +1,7 @@
 """Configuración de la aplicación ERP."""
 import os
 import sys
+from sqlalchemy.engine import URL
 from pathlib import Path
 
 # Directorio base: PyInstaller extrae a _MEIPASS; .env debe estar junto al .exe
@@ -30,6 +31,8 @@ def _get_default_db_uri():
     if url and "sqlite" in url.lower():
         url = ""  # No usar SQLite
     if url:
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+psycopg2://", 1)
         return url
     if os.environ.get("PGUSER") or os.environ.get("PGPASSWORD") or os.environ.get("PGHOST"):
         user = os.environ.get("PGUSER", "postgres")
@@ -37,8 +40,8 @@ def _get_default_db_uri():
         host = os.environ.get("PGHOST", "localhost")
         port = os.environ.get("PGPORT", "5432")
         dbname = os.environ.get("PGDATABASE", "restaurant_erp")
-        return f"postgresql://{user}:{pwd}@{host}:{port}/{dbname}"
-    return "postgresql://postgres:1234@localhost:5432/restaurant_erp"
+        return URL.create("postgresql+psycopg2", username=user, password=pwd, host=host, port=int(port), database=dbname).render_as_string(hide_password=False)
+    return "postgresql+psycopg2://postgres:1234@localhost:5432/restaurant_erp"
 
 
 def _get_db_uri():
